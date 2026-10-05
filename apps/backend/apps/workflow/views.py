@@ -44,16 +44,23 @@ class ServiceRequestViewSet(viewsets.ModelViewSet):
         # anything outside the staff member's own hospital, and grants no
         # extra write/completion authority (that's enforced separately in
         # apps/workflow/services.py::_can_complete()).
-        if user.role == 'HOSPITAL_STAFF' and staff.department_id:
-            qs = qs.filter(Q(target_department=staff.department_id) | Q(created_by=user))
+        if user.role == 'HOSPITAL_STAFF':
+            if not staff.department_id:
+                return qs.filter(created_by=user)
+            department_queue = Q(target_department=staff.department_id) & ~Q(
+                status__in=[RequestStatus.REQUESTED, RequestStatus.APPROVAL_REQUIRED]
+            )
+            qs = qs.filter(department_queue | Q(created_by=user))
         return qs
 
     def get_permissions(self):
         if self.action == 'create':
-            return [IsAuthenticated(), IsStaffOrManagementOrAdmin()]
+            return [IsAuthenticated()]
         return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
+        if request.user.role not in ('PATIENT', 'HOSPITAL_STAFF', 'HOSPITAL_MANAGEMENT', 'HOSPITAL_ADMIN'):
+            raise PermissionDenied('You are not authorised to create service requests.')
         serializer = ServiceRequestCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         d = serializer.validated_data
@@ -62,6 +69,8 @@ class ServiceRequestViewSet(viewsets.ModelViewSet):
         patient = PatientProfile.objects.filter(id=d['patient']).first()
         if not admission or not patient:
             return Response({'detail': 'Patient or admission not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if admission.patient_id != patient.id:
+            return Response({'detail': 'The patient does not belong to this admission.'}, status=status.HTTP_400_BAD_REQUEST)
         if not user_can_access_admission(request.user, admission):
             raise PermissionDenied('You cannot create requests on another hospital\'s admission.')
 
@@ -89,7 +98,13 @@ class ServiceRequestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsStaffOrManagementOrAdmin])
     def accept(self, request, pk=None):
-        return self._do_transition(request, RequestStatus.APPROVED)
+        req = self.get_object()
+        new_status = (
+            RequestStatus.APPROVAL_REQUIRED
+            if req.status == RequestStatus.REQUESTED and req.requires_consent
+            else RequestStatus.APPROVED
+        )
+        return self._do_transition(request, new_status)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsStaffOrManagementOrAdmin])
     def start(self, request, pk=None):

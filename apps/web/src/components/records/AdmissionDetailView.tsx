@@ -73,7 +73,13 @@ export function AdmissionDetailView({ admissionId, backHref }: { admissionId: st
         </div>
       )}
 
-      <StaffConsentPanel patientId={a.patient} admissionId={a.id} consents={relevantConsents} onChanged={consents.refetch} />
+      <StaffConsentPanel
+        patientId={a.patient}
+        admissionId={a.id}
+        consents={relevantConsents}
+        requests={requests.data?.results ?? []}
+        onChanged={() => { consents.refetch(); requests.refetch(); }}
+      />
 
       {documents.data && (
         <DocumentsPanel

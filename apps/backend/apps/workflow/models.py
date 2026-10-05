@@ -68,7 +68,7 @@ class RequestStatus(models.TextChoices):
 # Explicit allow-list of transitions. Anything not listed here is refused by
 # ServiceRequest.transition_to(), regardless of who's asking.
 ALLOWED_TRANSITIONS = {
-    RequestStatus.REQUESTED: {RequestStatus.PENDING, RequestStatus.APPROVAL_REQUIRED, RequestStatus.CANCELLED, RequestStatus.REJECTED},
+    RequestStatus.REQUESTED: {RequestStatus.PENDING, RequestStatus.APPROVAL_REQUIRED, RequestStatus.APPROVED, RequestStatus.CANCELLED, RequestStatus.REJECTED},
     RequestStatus.PENDING: {RequestStatus.APPROVAL_REQUIRED, RequestStatus.APPROVED, RequestStatus.READY, RequestStatus.BLOCKED, RequestStatus.CANCELLED, RequestStatus.REJECTED},
     RequestStatus.APPROVAL_REQUIRED: {RequestStatus.APPROVED, RequestStatus.REJECTED, RequestStatus.CANCELLED},
     RequestStatus.APPROVED: {RequestStatus.READY, RequestStatus.IN_PROGRESS, RequestStatus.POSTPONED, RequestStatus.CANCELLED, RequestStatus.BLOCKED},

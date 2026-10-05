@@ -80,7 +80,7 @@ def _send_to_users(*, users, event_key, notification_type, title, body, patient,
 
 
 def notify_request_created(request):
-    if request.status == 'APPROVAL_REQUIRED':
+    if request.status in ('REQUESTED', 'APPROVAL_REQUIRED'):
         users = _hospital_users(request.admission.hospital_id, [Role.HOSPITAL_MANAGEMENT, Role.HOSPITAL_ADMIN])
     elif request.target_department_id:
         users = _department_users(request.target_department_id)
@@ -127,6 +127,21 @@ def notify_request_transition(request, transition):
         body=body,
         patient=request.patient,
         admission=request.admission,
+    )
+
+
+def notify_consent_created(consent):
+    patient_user_id = consent.patient.user_id
+    if not patient_user_id:
+        return
+    _send_to_users(
+        users={patient_user_id},
+        event_key=f'consent:{consent.id}:created',
+        notification_type=NotificationType.NEW_CONSENT,
+        title='Consent requested',
+        body='A hospital has requested your consent. Review the request in your Consents page.',
+        patient=consent.patient,
+        admission=consent.admission,
     )
 
 
