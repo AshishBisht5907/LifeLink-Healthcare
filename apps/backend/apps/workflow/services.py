@@ -41,7 +41,8 @@ def create_service_request(*, patient, admission, request_type, created_by, reas
         reason=reason,
         requires_consent=request_type in REQUIRES_CONSENT_TYPES,
         is_family_visible=request_type in FAMILY_VISIBLE_TYPES,
-        status=RequestStatus.APPROVAL_REQUIRED if request_type in REQUIRES_CONSENT_TYPES else RequestStatus.PENDING,
+        status=(RequestStatus.REQUESTED if created_by.role == 'PATIENT' else
+            RequestStatus.APPROVAL_REQUIRED if request_type in REQUIRES_CONSENT_TYPES else RequestStatus.PENDING),
     )
     StatusTransition.objects.create(
         service_request=req, from_status='', to_status=req.status, changed_by=created_by,
@@ -92,6 +93,22 @@ def transition_request(*, req: ServiceRequest, new_status, actor, note=''):
                     admission_id=req.admission_id,
                     target_description=f'{current} -> {new_status} (not allowed)')
         raise WorkflowError(f'Cannot move request from {current} to {new_status}.')
+
+    if current == RequestStatus.REQUESTED and new_status in (
+        RequestStatus.APPROVED, RequestStatus.APPROVAL_REQUIRED,
+    ) and actor.role != 'HOSPITAL_MANAGEMENT':
+        raise PermissionDenied('Only Hospital Management can approve a patient request.')
+
+    if req.requires_consent and new_status == RequestStatus.APPROVED:
+        if not req.linked_consent or req.linked_consent.status != 'APPROVED':
+            raise PermissionDenied('Patient consent must be approved before this request can proceed.')
+
+    if actor.role in ('HOSPITAL_STAFF', 'HOSPITAL_MANAGEMENT', 'HOSPITAL_ADMIN'):
+        staff = get_staff_profile(actor)
+        if not staff or not staff.is_active or staff.hospital_id != req.admission.hospital_id:
+            raise PermissionDenied('You are not authorised to process requests at this hospital.')
+        if actor.role == 'HOSPITAL_STAFF' and staff.department_id != req.target_department_id:
+            raise PermissionDenied('Only the routed department can process this request.')
 
     if new_status == RequestStatus.COMPLETED and not _can_complete(actor, req):
         log_action('REQUEST_COMPLETION_DENIED', actor=actor, result='DENIED',

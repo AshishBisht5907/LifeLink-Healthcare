@@ -1,6 +1,6 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -37,7 +37,21 @@ class ConsentRequestViewSet(viewsets.ModelViewSet):
         admission = serializer.validated_data['admission']
         if not user_can_access_admission(self.request.user, admission):
             raise PermissionDenied('You cannot create a consent request on another hospital\'s admission.')
-        serializer.save(requested_by=self.request.user)
+        service_request = serializer.validated_data.pop('service_request', None)
+        if service_request and (
+            service_request.patient_id != serializer.validated_data['patient'].id
+            or service_request.admission_id != admission.id
+            or not service_request.requires_consent
+            or service_request.status != 'APPROVAL_REQUIRED'
+            or service_request.linked_consent_id
+        ):
+            raise ValidationError({'service_request': 'Select an unlinked request that is waiting for patient consent.'})
+        consent = serializer.save(requested_by=self.request.user)
+        if service_request:
+            service_request.linked_consent = consent
+            service_request.save(update_fields=['linked_consent', 'updated_at'])
+        from apps.notifications.services import notify_consent_created
+        notify_consent_created(consent)
 
     @action(detail=True, methods=['post'])
     def decide(self, request, pk=None):
