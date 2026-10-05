@@ -19,13 +19,17 @@ const REQUEST_TYPES: { value: RequestTypeCode; label: string }[] = [
   { value: 'DOCUMENT_VERIFICATION', label: 'Document Verification' },
   { value: 'GENERIC_TASK', label: 'Internal Task' },
 ];
+const PATIENT_REQUEST_TYPES = REQUEST_TYPES.filter((type) =>
+  type.value !== 'DOCUMENT_VERIFICATION' && type.value !== 'GENERIC_TASK'
+);
 
 export function NewServiceRequestForm({
-  patientId, admissionId, onCreated,
+  patientId, admissionId, onCreated, patientMode = false,
 }: {
   patientId: string;
   admissionId: string;
   onCreated: () => void;
+  patientMode?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [requestType, setRequestType] = useState<RequestTypeCode>('CT_SCAN');
@@ -61,7 +65,7 @@ export function NewServiceRequestForm({
         <form onSubmit={submit} className="space-y-3 border-b border-border p-5">
           <Field label="Request type">
             <Select value={requestType} onChange={(e) => setRequestType(e.target.value as RequestTypeCode)}>
-              {REQUEST_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {(patientMode ? PATIENT_REQUEST_TYPES : REQUEST_TYPES).map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </Select>
           </Field>
           <Field label="Priority">

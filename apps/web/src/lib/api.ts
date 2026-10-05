@@ -210,7 +210,7 @@ export const requestsApi = {
 export const consentsApi = {
   list: () => get<Paginated<ConsentRequest>>('consents/'),
   get: (id: string) => get<ConsentRequest>(`consents/${id}/`),
-  create: (data: { patient: string; admission: string; procedure_description: string; risk_information?: string }) =>
+  create: (data: { patient: string; admission: string; procedure_description: string; risk_information?: string; service_request?: string }) =>
     post<ConsentRequest>('consents/', data),
   decide: (id: string, action: 'APPROVE' | 'DECLINE' | 'ASK_DOCTOR') =>
     post<ConsentRequest>(`consents/${id}/decide/`, { action }),

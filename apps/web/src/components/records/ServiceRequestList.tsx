@@ -95,7 +95,9 @@ export function ServiceRequestList({ requests, interactive = false, viewerDepart
       <ul className="divide-y divide-border">
         {requests.map((r) => {
           let actions = interactive ? NEXT_ACTIONS[r.status] ?? [] : [];
-          const canComplete = viewerIsManagementOrAdmin || (viewerDepartmentName && viewerDepartmentName === r.department_name);
+          const canProcess = viewerIsManagementOrAdmin || (viewerDepartmentName && viewerDepartmentName === r.department_name);
+          if (!canProcess) actions = [];
+          const canComplete = viewerDepartmentName && viewerDepartmentName === r.department_name;
           if (!canComplete) actions = actions.filter((a) => a.action !== 'complete');
           const urgent = isUrgent(r);
           const overdue = !!r.due_at && new Date(r.due_at).getTime() < now && !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(r.status);
