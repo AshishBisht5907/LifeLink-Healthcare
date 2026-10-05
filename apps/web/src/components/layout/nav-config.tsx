@@ -63,7 +63,7 @@ export function navForRole(role: Me['role']): NavItem[] {
     case 'FAMILY':
       return [
         { href: '/portal', label: 'Dashboard', icon: HeartPulse },
-        { href: '/portal/profile', label: 'My profile', icon: UserRound },
+        { href: '/portal/profile', label: 'Patient profile', icon: UserRound },
         { href: '/portal/admissions', label: 'Admissions', icon: Users },
         { href: '/portal/requests', label: 'Requests', icon: ClipboardList },
         { href: '/portal/referrals', label: 'Referrals', icon: ArrowLeftRight },
@@ -93,9 +93,9 @@ export function contextLabel(user: Me): { role: string; detail: string | null } 
       return { role: dept ? `STAFF · ${dept.toUpperCase()}` : 'HOSPITAL STAFF', detail: user.staff_profile?.hospital ?? null };
     }
     case 'HOSPITAL_MANAGEMENT':
-      return { role: 'HOSPITAL MANAGEMENT', detail: user.staff_profile?.hospital ?? null };
+      return { role: 'CARE COORDINATION', detail: user.staff_profile?.hospital ?? null };
     case 'HOSPITAL_ADMIN':
-      return { role: 'ADMIN', detail: user.staff_profile?.hospital ?? null };
+      return { role: 'HOSPITAL ADMIN', detail: user.staff_profile?.hospital ?? null };
     case 'FAMILY':
       return { role: 'FAMILY', detail: null };
     default:
