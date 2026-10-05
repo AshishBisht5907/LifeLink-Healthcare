@@ -88,7 +88,7 @@ export function Navbar({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => 
                 <p className="truncate text-xs text-muted">{ctx.role}{ctx.detail ? ` · ${ctx.detail}` : ''}</p>
               </div>
               {isPortal && (
-                <Link role="menuitem" href="/portal/profile" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-neutral-tint"><UserRound className="h-4 w-4" /> My profile</Link>
+                <Link role="menuitem" href="/portal/profile" className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-neutral-tint"><UserRound className="h-4 w-4" /> {user.role === 'FAMILY' ? 'Patient profile' : 'My profile'}</Link>
               )}
               <Link role="menuitem" href="/settings" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-neutral-tint"><Settings className="h-4 w-4" /> Settings</Link>
               <button role="menuitem" onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-danger hover:bg-danger-tint"><LogOut className="h-4 w-4" /> Log out</button>
