@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, ClipboardList, Building2, Bell, ArrowLeftRight,
-  HeartPulse, FileCheck2, UserCog, ScrollText, Search, FileText, UserRound, ShieldCheck, Hospital, Settings,
+  HeartPulse, Activity, FileCheck2, UserCog, ScrollText, Search, FileText, UserRound, ShieldCheck, Hospital, Settings,
 } from 'lucide-react';
 import type { Me } from '@/lib/types';
 
@@ -53,6 +53,7 @@ export function navForRole(role: Me['role']): NavItem[] {
         { href: '/portal/profile', label: 'My profile', icon: UserRound },
         { href: '/portal/admissions', label: 'Admissions', icon: Users },
         { href: '/portal/requests', label: 'Requests', icon: ClipboardList },
+        { href: '/portal/care-journey', label: 'Care Journey', icon: Activity },
         { href: '/portal/referrals', label: 'Referrals', icon: ArrowLeftRight },
         { href: '/portal/documents', label: 'Documents', icon: FileText },
         { href: '/portal/consents', label: 'Consent', icon: FileCheck2 },
