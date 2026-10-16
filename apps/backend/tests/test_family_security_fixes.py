@@ -234,7 +234,7 @@ def test_gap4_family_cannot_widen_edit_or_delete_their_own_link(patient):
 
 
 def test_gap4_family_with_full_access_cannot_edit_or_delete_their_own_link(family_user, patient):
-    """The real exposure: a full-representative family member WITH approved consent
+    """The real exposure: a full-representative family member with patient-approved access
     used to pass the 'can access this patient' check and could change or delete links."""
     link = FamilyRelationship.objects.get(patient=patient, family_user=family_user)
     assert auth_client(family_user).get(f'/api/patients/{patient.id}/').status_code == 200   # they do have access
