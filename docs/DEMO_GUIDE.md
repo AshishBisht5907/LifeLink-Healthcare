@@ -7,6 +7,41 @@ cd apps/backend
 ./venv/bin/python manage.py runserver
 ```
 
+## End-to-end workflow validation (college demo)
+
+Run the backend tests from `apps/backend`:
+
+```bash
+./venv/bin/python -m pytest tests/test_workflow_state_machine.py tests/test_patient_me_summary.py tests/test_otp_providers.py -v
+```
+
+The workflow regression test `test_patient_request_waits_for_management_then_routes_to_department` exercises the actual Django API in this order:
+
+1. Patient submits a CT scan request for their own active admission.
+2. The backend auto-routes it to Radiology and notifies management.
+3. Management sees the request and accepts it.
+4. Radiology sees the request only after management acceptance.
+5. Radiology starts and completes the work; management cannot falsely complete a clinical request.
+6. The patient sees the final status and the full REQUESTED → APPROVED → IN_PROGRESS → COMPLETED transition history.
+
+For a browser smoke test, run `npm run build`, `npm run start`, then in another terminal run `npm run test:e2e` from `apps/web`. The Playwright test covers the real Next.js home → patient login → family registration → OTP UI flow while stubbing auth HTTP responses. It does not send an SMS or replace the backend API integration tests.
+
+## Optional real SMS setup
+
+The default college-demo configuration uses `OTP_PROVIDER=mock` and `OTP_DEV_MODE=True`; no SMS is sent. To test actual delivery, use a Twilio account and a sender number enabled for your account. In `apps/backend/.env`, set:
+
+```dotenv
+OTP_PROVIDER=twilio
+OTP_DEV_MODE=False
+TWILIO_ACCOUNT_SID=your-account-sid
+TWILIO_AUTH_TOKEN=your-auth-token
+TWILIO_FROM_NUMBER=+1xxxxxxxxxx
+```
+
+Use an E.164 destination number such as `+1xxxxxxxxxx`. Keep credentials out of GitHub. Real delivery cannot be validated until valid credentials, a permitted sender, and a reachable SMS API are supplied. Aadhaar remains a demo-only mock; do not use real Aadhaar data in this college project.
+
+---
+
 ## Demo credentials (dev only)
 
 | Role | Username | Password |
