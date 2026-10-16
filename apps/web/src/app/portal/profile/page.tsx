@@ -69,7 +69,7 @@ function ProfileView({ p, accountEmail }: { p: PatientDetail; accountEmail: stri
             <Row icon={<UserRound />} label="Gender" value={genderLabel(p.gender)} />
             <Row icon={<Phone />} label="Phone" value={p.phone || 'Not provided'} />
             {accountEmail && <Row icon={<Mail />} label="Email" value={accountEmail} />}
-            <Row icon={<Home />} label="Address" value="Not collected by LifeLink yet" muted />
+            <Row icon={<Home />} label="Address" value={p.address || "Not provided"} muted={!p.address} />
           </dl>
         </Card>
 
