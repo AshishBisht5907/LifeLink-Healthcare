@@ -2,6 +2,7 @@ import pytest
 from rest_framework import status
 
 from apps.accounts.models import Role, User
+from apps.notifications.models import Notification
 from apps.patients.models import Allergy, FamilyRelationship, PatientProfile
 
 
@@ -112,6 +113,7 @@ def test_family_registration_creates_pending_link_that_patient_can_activate(
 
     link = FamilyRelationship.objects.get(patient=patient, family_user=family_user)
     assert link.is_active is False
+    assert Notification.objects.filter(recipient=patient_user, title='Family link request', patient=patient).exists()
 
     # The patient sees the pending link and explicitly activates it.
     api_client.force_authenticate(user=patient_user)
