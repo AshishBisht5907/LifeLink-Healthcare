@@ -34,11 +34,14 @@ try {
     contentType: 'application/json',
     body: JSON.stringify(user),
   }));
-  await page.route('**/api/proxy/**', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ count: 0, results: [] }),
-  }));
+  await page.route('**/api/proxy/**', route => {
+    const isMe = new URL(route.request().url()).pathname.includes('/auth/me/');
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(isMe ? user : { count: 0, results: [] }),
+    });
+  });
 
   const home = await page.goto(baseURL);
   assert.equal(home?.status(), 200, 'home page should load');
