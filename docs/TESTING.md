@@ -6,14 +6,11 @@ Run from `apps/backend`:
 ./venv/bin/python -m pytest tests/ -v
 ```
 
-## Current status (last full run, clean database)
+## Current status
 
-**69 / 69 passing.**
+GitHub Actions (`.github/workflows/ci.yml`) runs on pull requests and pushes to `main`. It checks migration consistency, runs the backend regression suite, and builds the frontend with `npm ci` + `npm run build`.
 
-Ran by dropping and recreating both the application database and the
-pytest test database, then migrating from zero migrations, to confirm the
-schema and test suite both work from a genuinely clean state — not just
-against a database that had accumulated state from earlier runs.
+The last completed CI run before the latest family-onboarding changes reported **185 passing backend tests** and a successful frontend production build. That older result does not validate later commits; check the latest run on the pull request before merging. Avoid hard-coding a test count because regression tests are added as workflow gaps are fixed.
 
 ## Coverage by file
 
@@ -66,7 +63,7 @@ against a database that had accumulated state from earlier runs.
 ## Known gaps (not yet covered)
 
 - No load/performance testing.
-- No frontend tests (no frontend exists yet).
+- The frontend production build is checked in CI, but automated browser-level UI/workflow tests are not yet implemented.
 - The AI engine's `generate_referral_summary`-style reuse inside
   `ReferralViewSet.create()` is exercised indirectly (via the referral
   tests) but doesn't have a dedicated unit test for that call site.
