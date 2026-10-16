@@ -195,7 +195,14 @@ class OTPVerifyView(APIView):
                 if existing_profile:
                     existing_profile.user = user
                     existing_profile.is_unclaimed = False
-                    existing_profile.save(update_fields=['user', 'is_unclaimed', 'updated_at'])
+                    update_fields = ['user', 'is_unclaimed', 'updated_at']
+                    # Keep hospital-entered address when present; fill only a
+                    # missing value from the newly verified account form.
+                    submitted_address = (d.get('address') or '').strip()
+                    if submitted_address and not existing_profile.address:
+                        existing_profile.address = submitted_address
+                        update_fields.append('address')
+                    existing_profile.save(update_fields=update_fields)
                 else:
                     # Self-registration creates a profile unless a hospital has
                     # already registered this phone as an unclaimed patient.
