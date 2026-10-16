@@ -43,7 +43,7 @@ def test_consent_decline_rejects_linked_request(patient, admission, doctor_a, fa
 
 
 @pytest.mark.django_db
-def test_family_access_requires_current_consent_decision(patient, admission, doctor_a, family_user, patient_user):
+def test_family_profile_access_is_separate_from_procedure_consent(patient, admission, doctor_a, family_user, patient_user):
     first_consent = ConsentRequest.objects.create(
         patient=patient, admission=admission, procedure_description='Initial family access', requested_by=doctor_a,
         status='APPROVED',
@@ -55,7 +55,8 @@ def test_family_access_requires_current_consent_decision(patient, admission, doc
     )
     record_consent_action(consent=newer_consent, actor=patient_user, action=ConsentActionType.DECLINE)
     assert newer_consent.status == 'DECLINED'
-    assert user_can_access_patient(family_user, patient) is False
+    # Procedure consent controls the procedure, not the separate family data-sharing link.
+    assert user_can_access_patient(family_user, patient) is True
 
     record_consent_action(consent=newer_consent, actor=patient_user, action=ConsentActionType.APPROVE)
     assert newer_consent.status == 'APPROVED'
