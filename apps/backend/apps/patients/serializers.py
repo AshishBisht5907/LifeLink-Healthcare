@@ -6,6 +6,18 @@ from apps.patients.models import (
 )
 
 
+class PatientProfileSummarySerializer(serializers.ModelSerializer):
+    """Minimal identity-only response for patient/family profile discovery.
+
+    Medical details must be loaded from the detail endpoint, where family
+    consent is enforced. Do not add clinical fields to this serializer.
+    """
+    class Meta:
+        model = PatientProfile
+        fields = ['id', 'lifelink_patient_id', 'full_name', 'is_unclaimed']
+        read_only_fields = fields
+
+
 class PatientProfileListSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientProfile
