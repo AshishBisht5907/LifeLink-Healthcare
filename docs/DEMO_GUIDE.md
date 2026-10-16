@@ -27,6 +27,7 @@ cd apps/backend
 
 Patient login: phone `9876500001` via `/api/auth/otp/request/` + `/api/auth/otp/verify/` (dev mode echoes the OTP in the response).
 Family login: phone `9876500002`, same flow.
+New family account: open `/login/family`, enter the patient's LifeLink ID, verify the phone using the development OTP, then have the patient open **Family access** and activate the pending link. Clinical details remain locked until the patient has also approved consent.
 Mock Aadhaar demo identity: number `999911112222`, demo OTP `111111`.
 
 ## What's pre-loaded
