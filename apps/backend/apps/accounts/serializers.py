@@ -28,12 +28,12 @@ class MeSerializer(serializers.ModelSerializer):
 
 class OTPRequestSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
-    purpose = serializers.ChoiceField(choices=['LOGIN', 'REGISTER', 'CLAIM_PROFILE'])
+    purpose = serializers.ChoiceField(choices=['LOGIN', 'REGISTER', 'REGISTER_FAMILY', 'CLAIM_PROFILE'])
 
 
 class OTPVerifySerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
-    purpose = serializers.ChoiceField(choices=['LOGIN', 'REGISTER', 'CLAIM_PROFILE'])
+    purpose = serializers.ChoiceField(choices=['LOGIN', 'REGISTER', 'REGISTER_FAMILY', 'CLAIM_PROFILE'])
     code = serializers.CharField(max_length=6)
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     # Extended registration fields
@@ -41,6 +41,8 @@ class OTPVerifySerializer(serializers.Serializer):
     gender = serializers.ChoiceField(choices=['M', 'F', 'O', 'U'], required=False)
     email = serializers.EmailField(required=False, allow_blank=True)
     address = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    lifelink_patient_id = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    relationship_type = serializers.CharField(max_length=50, required=False, default='Representative')
 
 
 class StaffLoginSerializer(serializers.Serializer):
