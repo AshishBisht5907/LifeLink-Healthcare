@@ -94,7 +94,7 @@ export default function FamilyRegistrationPage() {
                 <Input value={relationship} onChange={(e) => setRelationship(e.target.value)} required maxLength={50} />
               </Field>
               {error && <p className="text-sm text-danger">{error}</p>}
-              <Button type="submit" block loading={busy}>Send verification code</Button>
+              <Button type="submit" className="w-full" loading={busy}>Send verification code</Button>
             </form>
           ) : (
             <form onSubmit={verifyCode} className="space-y-4">
@@ -104,8 +104,8 @@ export default function FamilyRegistrationPage() {
                 <Input value={code} onChange={(e) => setCode(e.target.value)} required inputMode="numeric" maxLength={6} placeholder="Enter OTP" />
               </Field>
               {error && <p className="text-sm text-danger">{error}</p>}
-              <Button type="submit" block loading={busy}>Verify and create account</Button>
-              <Button type="button" variant="secondary" block disabled={busy} onClick={() => { setStep('DETAILS'); setCode(''); setError(''); }}>Back</Button>
+              <Button type="submit" className="w-full" loading={busy}>Verify and create account</Button>
+              <Button type="button" variant="secondary" className="w-full" disabled={busy} onClick={() => { setStep('DETAILS'); setCode(''); setError(''); }}>Back</Button>
             </form>
           )}
         </Card>
