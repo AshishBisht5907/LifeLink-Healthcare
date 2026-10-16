@@ -71,16 +71,29 @@ def test_gap1_updates_only_family_cannot_decide_consent(patient, pending_consent
     assert auth_client(low).post(f'/api/consents/{pending_consent.id}/decide/', {'action': 'APPROVE'}, format='json').status_code == 403
 
 
-def test_gap1_family_cannot_approve_to_unlock_their_own_access(patient, admission, doctor_a):
-    """The circular attack: a full-representative link with no approved consent
-    must not be able to approve its way into the record."""
+def test_gap1_family_data_access_comes_from_patient_approved_link_not_procedure_consent(
+    patient, admission, doctor_a
+):
+    """A full-representative link is data-sharing approval; treatment consent is separate."""
     fam = mk_user('selfunlock', phone='9100000003')
-    FamilyRelationship.objects.create(patient=patient, family_user=fam, relationship_type='Friend', access_level='FULL_REPRESENTATIVE')
-    consent = ConsentRequest.objects.create(patient=patient, admission=admission, procedure_description='x', requested_by=doctor_a)
+    FamilyRelationship.objects.create(
+        patient=patient,
+        family_user=fam,
+        relationship_type='Friend',
+        access_level='FULL_REPRESENTATIVE',
+        is_active=True,
+    )
+    consent = ConsentRequest.objects.create(
+        patient=patient, admission=admission,
+        procedure_description='x', requested_by=doctor_a,
+    )
     c = auth_client(fam)
-    assert c.get(f'/api/patients/{patient.id}/').status_code == 403
+    assert c.get(f'/api/patients/{patient.id}/').status_code == 200
+    # A family member still cannot approve a treatment/procedure consent.
     assert c.post(f'/api/consents/{consent.id}/decide/', {'action': 'APPROVE'}, format='json').status_code == 403
-    assert c.get(f'/api/patients/{patient.id}/').status_code == 403
+    consent.refresh_from_db()
+    assert consent.status == ConsentStatus.PENDING
+    assert c.get(f'/api/patients/{patient.id}/').status_code == 200
 
 
 def test_gap1_patient_can_still_approve_decline_and_ask(patient, patient_user, pending_consent):
@@ -100,7 +113,7 @@ def test_gap1_other_patient_and_staff_still_cannot_decide(pending_consent, docto
 
 
 def test_gap1_family_can_still_view_consents_and_access_when_rules_allow(family_user, patient):
-    """Existing consent/access rules are untouched: approved consent + full link = access."""
+    """A patient-activated full-representative link grants data access; procedure consent remains a separate workflow."""
     c = auth_client(family_user)
     assert c.get('/api/consents/').status_code == 200
     assert c.get(f'/api/patients/{patient.id}/').status_code == 200
