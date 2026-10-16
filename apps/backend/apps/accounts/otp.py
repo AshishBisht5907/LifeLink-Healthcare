@@ -6,18 +6,17 @@ never using real SMS credits in a dev/college environment. The pattern:
 hashing, expiry, and attempt-limiting are all real and production-shaped.
 Only the *delivery* mechanism (actually sending an SMS) is swapped.
 
-To wire a real provider (e.g. Twilio, MSG91) in production:
-  1. Implement a new class below that sends via that provider's API.
-  2. Set OTP_PROVIDER=<name> and the provider's credentials in the
-     environment (never in code).
-  3. Update `get_otp_provider()` to return it.
-
-Nothing else in the codebase needs to change — callers only depend on the
-`OTPProvider` interface.
+Twilio SMS delivery is implemented below. Configure credentials only through
+environment variables; never commit secrets. Demo mode remains opt-in via
+OTP_DEV_MODE and must be disabled when real SMS delivery is used.
 """
 import hashlib
 import logging
 import random
+import base64
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from abc import ABC, abstractmethod
 
 from django.conf import settings
@@ -53,15 +52,43 @@ class MockOTPProvider(OTPProvider):
         return True
 
 
+class TwilioSMSProvider(OTPProvider):
+    """Send the app-generated one-time code through Twilio Programmable SMS.
+
+    Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER.
+    The phone number must be in E.164 format (for example +14155552671).
+    """
+    def send(self, phone: str, code: str, purpose: str) -> bool:
+        sid = getattr(settings, 'TWILIO_ACCOUNT_SID', '')
+        token = getattr(settings, 'TWILIO_AUTH_TOKEN', '')
+        from_number = getattr(settings, 'TWILIO_FROM_NUMBER', '')
+        if not all((sid, token, from_number)):
+            raise RuntimeError('Twilio is selected but its credentials/from number are not configured.')
+        if not phone.startswith('+') or not phone[1:].isdigit():
+            raise ValueError('Real SMS delivery requires a phone number in E.164 format, such as +14155552671.')
+        endpoint = f'https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json'
+        body = f'Your LifeLink verification code is {code}. It expires in {settings.OTP_TTL_SECONDS // 60} minutes.'
+        payload = urlencode({'To': phone, 'From': from_number, 'Body': body}).encode()
+        auth = base64.b64encode(f'{sid}:{token}'.encode()).decode()
+        request = Request(endpoint, data=payload, headers={
+            'Authorization': f'Basic {auth}',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }, method='POST')
+        try:
+            with urlopen(request, timeout=10) as response:
+                return 200 <= response.status < 300
+        except (HTTPError, URLError, TimeoutError) as exc:
+            logger.warning('otp_dispatch_failed provider=twilio error_type=%s', type(exc).__name__)
+            raise RuntimeError('SMS provider could not send the verification code. Please try again.') from exc
+
+
 def get_otp_provider() -> OTPProvider:
-    provider_name = getattr(settings, 'OTP_PROVIDER', 'mock')
+    provider_name = getattr(settings, 'OTP_PROVIDER', 'mock').lower()
     if provider_name == 'mock':
         return MockOTPProvider()
-    # Real providers (Twilio/MSG91/etc.) would be registered here.
-    raise NotImplementedError(
-        f"OTP provider '{provider_name}' is not wired in this build. "
-        "Implement it in apps/accounts/otp.py and register it here."
-    )
+    if provider_name == 'twilio':
+        return TwilioSMSProvider()
+    raise ValueError(f"Unsupported OTP_PROVIDER '{provider_name}'. Use 'mock' or 'twilio'.")
 
 
 def generate_code() -> str:
