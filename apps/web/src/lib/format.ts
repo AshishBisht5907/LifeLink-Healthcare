@@ -42,6 +42,6 @@ export function friendlyError(status?: number): string {
   if (status === 401) return 'Your session has expired. Please sign in again.';
   if (status === 403) return 'You do not have permission to view this.';
   if (status === 404) return 'We could not find this information.';
-  if (status === undefined || status === 0) return 'We could not reach LifeLink. Check your connection and try again.';
+  if (status === 502 || status === 503 || status === undefined || status === 0) return 'We could not reach the LifeLink backend. Check that Django is running on 127.0.0.1:8000, then try again.';
   return 'Something went wrong on our side. Please try again in a moment.';
 }
