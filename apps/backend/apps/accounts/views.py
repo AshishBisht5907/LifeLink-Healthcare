@@ -108,8 +108,8 @@ class OTPRequestView(APIView):
             return Response({'detail': str(exc) or 'Could not send verification code.'}, status=status.HTTP_502_BAD_GATEWAY)
 
         payload = {'detail': 'OTP sent.'}
-        if settings.OTP_DEV_MODE:
-            payload['dev_otp'] = code  # dev/demo convenience only — never enabled in production
+        if settings.OTP_DEV_MODE and settings.DEBUG and settings.OTP_PROVIDER == 'mock':
+            payload['dev_otp'] = code  # Only for local mock-provider demos; never echo a real SMS OTP
         return Response(payload)
 
 
