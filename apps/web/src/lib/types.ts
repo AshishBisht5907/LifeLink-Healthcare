@@ -109,6 +109,7 @@ export interface PatientDetail {
   date_of_birth: string | null;
   gender: string;
   phone: string;
+  address: string;
   blood_group: string;
   blood_group_verification: VerificationStatus;
   is_unclaimed: boolean;
