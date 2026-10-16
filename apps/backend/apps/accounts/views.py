@@ -179,6 +179,17 @@ class OTPVerifyView(APIView):
                     access_level=AccessLevel.FULL_REPRESENTATIVE,
                     is_active=False,
                 )
+                # Make the pending request visible to the patient immediately.
+                from apps.notifications.models import NotificationType
+                from apps.notifications.services import _create_once
+                _create_once(
+                    recipient=family_patient.user,
+                    notification_type=NotificationType.GENERAL,
+                    title='Family link request',
+                    body=f'{user.get_full_name() or user.username} requested to link to your LifeLink record. Open Family access to approve or pause the link.',
+                    patient=family_patient,
+                    dedupe_key=f'family-link-pending:{family_patient.id}:{user.id}',
+                )
             else:
                 existing_profile = unclaimed_profiles.first()
                 if existing_profile:
