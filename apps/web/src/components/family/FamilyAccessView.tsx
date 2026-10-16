@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Info, LockKeyhole, PauseCircle, PlayCircle, Unlock, Users } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/lib/useApi';
@@ -72,7 +71,7 @@ export function FamilyAccessView() {
         <CardHeader title={isPatient ? 'People linked to you' : 'Your links'} subtitle={rows.length ? `${rows.length} ${rows.length === 1 ? 'link' : 'links'}` : undefined} />
         {rows.length === 0 ? (
           <EmptyState icon={<Users className="h-5 w-5" />} title={isPatient ? 'No family members linked' : 'You are not linked to any patient'}
-            description={isPatient ? 'Linking a family member is not available from this screen yet. Ask your hospital to link their account.' : 'A hospital or the patient must link your account first.'} />
+            description={isPatient ? 'Ask the family member to register at /login/family using your LifeLink ID. Their request will appear here for your approval.' : 'Register at /login/family using the patient’s LifeLink ID, then ask the patient to activate your pending link.'} />
         ) : (
           <ul className="divide-y divide-border">
             {rows.map((l) => {
