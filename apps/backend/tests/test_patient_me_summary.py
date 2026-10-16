@@ -43,7 +43,7 @@ def test_family_me_endpoint_returns_identity_summary_without_consent(api_client,
     assert 'medications' not in response.data[0]
     assert 'history_entries' not in response.data[0]
 
-    # The full-detail endpoint still enforces consent independently.
+    # The full-detail endpoint still enforces the relationship's access level.
     detail_response = api_client.get(f'/api/patients/{patient.id}/')
     assert detail_response.status_code == status.HTTP_403_FORBIDDEN
     # Updates-only links can read the patient-visible status feed but not the clinical profile.
