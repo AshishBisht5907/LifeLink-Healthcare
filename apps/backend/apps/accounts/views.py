@@ -99,7 +99,13 @@ class OTPRequestView(APIView):
             phone=phone, purpose=purpose, code_hash=hash_code(code, phone),
             expires_at=timezone.now() + timezone.timedelta(seconds=settings.OTP_TTL_SECONDS),
         )
-        get_otp_provider().send(phone, code, purpose)
+        try:
+            delivered = get_otp_provider().send(phone, code, purpose)
+            if not delivered:
+                raise RuntimeError('OTP provider did not confirm delivery.')
+        except (RuntimeError, ValueError) as exc:
+            log_action('OTP_DISPATCH_FAILED', result='ERROR', target_description=purpose)
+            return Response({'detail': str(exc) or 'Could not send verification code.'}, status=status.HTTP_502_BAD_GATEWAY)
 
         payload = {'detail': 'OTP sent.'}
         if settings.OTP_DEV_MODE:
