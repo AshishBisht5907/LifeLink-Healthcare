@@ -18,7 +18,7 @@ const ROLE_LINKS = [
 
 export default function LoginLandingPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+    <div className="app-page-enter relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background px-4 py-10">
       <div className="mb-8 flex flex-col items-center text-center">
         <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-white">
           <HeartPulse className="h-5 w-5" />
@@ -26,9 +26,9 @@ export default function LoginLandingPage() {
         <h1 className="text-lg font-semibold text-foreground">Sign in to LifeLink</h1>
         <p className="mt-1 text-xs text-muted">Choose how you access the platform.</p>
       </div>
-      <div className="grid w-full max-w-sm gap-3">
+      <div className="grid w-full max-w-md gap-3">
         {ROLE_LINKS.map(({ href, icon: Icon, title, description }) => (
-          <Link key={title} href={href} className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 shadow-sm hover:border-brand/30">
+          <Link key={title} href={href} className="glass-panel interactive-card flex items-center gap-3 rounded-2xl border border-border/80 p-4 shadow-sm">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-tint text-brand-dark"><Icon className="h-4.5 w-4.5" /></div>
             <div>
               <p className="text-sm font-semibold text-foreground">{title}</p>
