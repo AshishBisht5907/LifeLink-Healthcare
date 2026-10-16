@@ -34,7 +34,7 @@
 ## Explicitly NOT implemented in this build
 
 - No antivirus/malware scanning of uploaded files (only type/size checks).
-- No real SMS/OTP provider wired (mock only — see `apps/accounts/otp.py`).
+- The mock OTP provider is the local default. A Twilio Programmable SMS provider is available in `apps/accounts/otp.py`; real delivery requires account credentials, an enabled sender, and E.164 phone numbers configured through environment variables. CI uses mocked transport only and never sends real SMS. Keep `OTP_DEV_MODE=False` with Twilio; real-provider OTPs are never echoed.
 - No real Aadhaar/UIDAI integration (mock only — see `apps/accounts/identity.py`).
 - No S3/object storage — documents are on local disk (`MEDIA_ROOT`).
 - No WAF, no dependency vulnerability scanning, no formal penetration
