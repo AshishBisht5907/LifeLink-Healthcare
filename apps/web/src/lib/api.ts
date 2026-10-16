@@ -93,7 +93,7 @@ export const authApi = {
     authRequest<{ user: Me }>('staff-login', { username, password, mfa_code }),
   otpRequest: (
     phone: string,
-    purpose: 'LOGIN' | 'REGISTER' | 'CLAIM_PROFILE',
+    purpose: 'LOGIN' | 'REGISTER' | 'REGISTER_FAMILY' | 'CLAIM_PROFILE',
     data?: {
       full_name?: string;
       date_of_birth?: string;
@@ -115,7 +115,9 @@ export const authApi = {
     date_of_birth?: string,
     gender?: string,
     email?: string,
-    address?: string
+    address?: string,
+    lifelink_patient_id?: string,
+    relationship_type?: string
   ) =>
     authRequest<{ user: Me }>('otp-verify', {
       phone,
@@ -126,6 +128,8 @@ export const authApi = {
       gender,
       email,
       address,
+      lifelink_patient_id,
+      relationship_type,
     }),
   logout: () => authRequest<{ detail: string }>('logout'),
   verifyAadhaar: (aadhaar_number: string, demo_otp: string) =>
