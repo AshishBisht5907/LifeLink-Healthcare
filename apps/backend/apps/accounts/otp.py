@@ -12,7 +12,7 @@ OTP_DEV_MODE and must be disabled when real SMS delivery is used.
 """
 import hashlib
 import logging
-import random
+import secrets
 import base64
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -92,7 +92,7 @@ def get_otp_provider() -> OTPProvider:
 
 
 def generate_code() -> str:
-    return f'{random.randint(0, 999999):06d}'
+    return f'{secrets.randbelow(1_000_000):06d}'
 
 
 def hash_code(code: str, phone: str) -> str:
