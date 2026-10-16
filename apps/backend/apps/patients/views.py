@@ -17,7 +17,8 @@ from apps.patients.models import (
 from apps.patients.serializers import (
     AllergySerializer, ClaimPatientProfileSerializer, CreateUnclaimedPatientSerializer,
     EmergencyContactSerializer, FamilyRelationshipSerializer, MedicalHistoryEntrySerializer,
-    MedicationSerializer, PatientProfileDetailSerializer, PatientProfileListSerializer,\n    PatientProfileSummarySerializer,
+    MedicationSerializer, PatientProfileDetailSerializer, PatientProfileListSerializer,
+    PatientProfileSummarySerializer,
 )
 from apps.patients.services import generate_lifelink_patient_id
 from apps.workflow.models import RequestStatus
