@@ -17,7 +17,7 @@ from apps.patients.models import (
 from apps.patients.serializers import (
     AllergySerializer, ClaimPatientProfileSerializer, CreateUnclaimedPatientSerializer,
     EmergencyContactSerializer, FamilyRelationshipSerializer, MedicalHistoryEntrySerializer,
-    MedicationSerializer, PatientProfileDetailSerializer, PatientProfileListSerializer,
+    MedicationSerializer, PatientProfileDetailSerializer, PatientProfileListSerializer,\n    PatientProfileSummarySerializer,
 )
 from apps.patients.services import generate_lifelink_patient_id
 from apps.workflow.models import RequestStatus
@@ -74,7 +74,7 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
             )
         else:
             raise PermissionDenied('This endpoint is for patient/family accounts only.')
-        return Response(PatientProfileDetailSerializer(patients, many=True).data)
+        return Response(PatientProfileSummarySerializer(patients, many=True).data)
 
     @action(detail=False, methods=['get'])
     def search(self, request):
