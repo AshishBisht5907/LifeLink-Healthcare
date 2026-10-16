@@ -1,8 +1,7 @@
 # LifeLink — Connected Care. Better Tomorrow.
 
 A patient-centric emergency health & hospital care coordination platform.
-**Full stack is now implemented and live-tested: Django REST backend +
-Next.js 16 (TypeScript) frontend.**
+**Full-stack implementation: Django REST backend + Next.js 16 (TypeScript) frontend. Current build/test status is tracked by GitHub Actions on pull requests.**
 
 ## What's real vs. what's mocked
 
@@ -32,7 +31,7 @@ lifelink/
       config/
       apps/                # accounts, hospitals, patients, admissions, workflow,
                             # consents, referrals, documents, notifications, audit, ai_insights
-      tests/               # 93 automated tests
+      tests/               # automated backend regression tests
     web/                   # Next.js 16 + TypeScript frontend
       src/
         app/                # role-based route groups: portal, staff, management, admin
@@ -70,5 +69,5 @@ npm run build && npm start
 
 Open http://localhost:3000 — role selection screen. See `docs/DEMO_GUIDE.md` for demo credentials.
 
-Run backend tests: `cd apps/backend && ./venv/bin/python -m pytest tests/ -v` (93 tests).
+Run backend tests: `cd apps/backend && ./venv/bin/python -m pytest tests/ -v` (the suite grows as regressions are added).
 Run frontend build check: `cd apps/web && npx next build`.
