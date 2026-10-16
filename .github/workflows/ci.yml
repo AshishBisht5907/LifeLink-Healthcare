@@ -54,6 +54,8 @@ jobs:
         run: |
           npm run start > /tmp/lifelink-next.log 2>&1 &
           echo $! > /tmp/lifelink-next.pid
+        env:
+          DJANGO_API_URL: http://127.0.0.1:8000
       - name: Wait for production server
         run: |
           for attempt in $(seq 1 60); do
