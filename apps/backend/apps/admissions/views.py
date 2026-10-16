@@ -61,6 +61,28 @@ class AdmissionViewSet(viewsets.ModelViewSet):
         if not patient:
             return Response({'detail': 'Patient not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Creating an admission must not itself grant access to an unrelated
+        # patient record. The patient must already be in this hospital's scope,
+        # or management must have an active, patient-approved/emergency grant.
+        if not user_can_access_patient(request.user, patient):
+            raise PermissionDenied('You must have authorised access to this patient before creating an admission.')
+
+        attending_doctor_id = d.get('attending_doctor')
+        if attending_doctor_id:
+            from apps.hospitals.models import StaffProfile, StaffRole
+            doctor_is_available_here = StaffProfile.objects.filter(
+                user_id=attending_doctor_id,
+                hospital=staff.hospital,
+                staff_role=StaffRole.DOCTOR,
+                is_active=True,
+                user__is_active=True,
+            ).exists()
+            if not doctor_is_available_here:
+                return Response(
+                    {'attending_doctor': 'Choose an active doctor from your own hospital.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         admission = Admission.objects.create(
             patient=patient,
             hospital=staff.hospital,
