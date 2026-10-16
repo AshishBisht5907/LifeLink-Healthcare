@@ -78,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="relative flex min-w-0 flex-1 flex-col">
         <Navbar menuOpen={mobileOpen} onMenu={() => setMobileOpen((v) => !v)} />
         <main className="flex-1">
-          <div className="app-page-enter mx-auto w-full max-w-[90rem] px-4 py-6 sm:px-6 sm:py-8 lg:px-9">{children}</div>
+          <div key={pathname} className="app-page-enter mx-auto w-full max-w-[90rem] px-4 py-6 sm:px-6 sm:py-8 lg:px-9">{children}</div>
         </main>
       </div>
     </div>
