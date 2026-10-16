@@ -109,7 +109,7 @@ export const authApi = {
     }),
   otpVerify: (
     phone: string,
-    purpose: 'LOGIN' | 'REGISTER' | 'CLAIM_PROFILE',
+    purpose: 'LOGIN' | 'REGISTER' | 'REGISTER_FAMILY' | 'CLAIM_PROFILE',
     code: string,
     full_name?: string,
     date_of_birth?: string,
