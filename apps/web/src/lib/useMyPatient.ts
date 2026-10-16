@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { patientsApi } from '@/lib/api';
+import { ApiError, patientsApi } from '@/lib/api';
 
 interface MyPatientResult {
   patientId: string | null;
@@ -85,10 +85,10 @@ export function useLinkedPatients() {
     setFailed(false);
     patientsApi.me()
       .then((rows) => !cancelled && setPatients(rows.map((r) => ({ id: r.id, lifelink_patient_id: r.lifelink_patient_id, full_name: r.full_name }))))
-      .catch(() => !cancelled && setFailed(true))
+      .catch((err) => {\n        if (cancelled) return;\n        setFailed(true);\n        setFailureStatus(err instanceof ApiError ? err.status : undefined);\n      })
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [user, tick]);
 
-  return { patients, loading, failed, refetch: () => setTick((t) => t + 1) };
+  return { patients, loading, failed, failureStatus, refetch: () => setTick((t) => t + 1) };
 }
