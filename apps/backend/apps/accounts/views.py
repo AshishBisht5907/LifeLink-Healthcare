@@ -169,6 +169,7 @@ class OTPVerifyView(APIView):
                     user=user,
                     full_name=d.get('full_name', ''),
                     phone=d['phone'],
+                    address=d.get('address', ''),
                     date_of_birth=d.get('date_of_birth'),
                     gender=d.get('gender', 'U'),
                     is_unclaimed=False,
