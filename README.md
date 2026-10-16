@@ -52,7 +52,7 @@ cd apps/backend
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 cp .env.example .env
-# Postgres must be running and the database in .env must already exist
+# The supplied .env.example uses SQLite by default. For PostgreSQL, set USE_SQLITE=False and configure DB_*
 ./venv/bin/python manage.py migrate
 ./venv/bin/python manage.py seed_demo
 ./venv/bin/python manage.py runserver
