@@ -3,7 +3,7 @@ import type {
   Department, Document as LLDocument, EmergencyContact, FamilyCommunicationLog, FamilyRelationship,
   Hospital, HospitalCapacity, LiveStatusItem, Me, MedicalHistoryEntry, Medication, Notification,
   NotificationPreference, Paginated, PatientDetail, PatientListItem, Referral, ServiceRequest, StatusTransition,
-  StaffProfile, Transfer, TransferPacket, PatientAccessGrant, PatientSearchRow,
+  StaffProfile, Transfer, TransferPacket, PatientAccessGrant, PatientSearchRow, PatientProfileSummary,
 } from './types';
 
 export class ApiError extends Error {
@@ -138,7 +138,7 @@ export const authApi = {
 // ---------------------------------------------------------------------------
 
 export const patientsApi = {
-  me: () => get<PatientDetail[]>('patients/me/'),
+  me: () => get<PatientProfileSummary[]>('patients/me/'),
   // A family user gets their own links (all linked patients); a patient gets none.
   familyLinks: () => get<Paginated<FamilyRelationship>>('patients/family-links/'),
   // Links for one patient. The backend allows this only for someone who may access that patient.
