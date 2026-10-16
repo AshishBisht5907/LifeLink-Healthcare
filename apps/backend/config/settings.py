@@ -186,9 +186,12 @@ LIFELINK_MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 # ---------------------------------------------------------------------------
 # OTP / identity verification (mock providers only — see docs/AI.md, SECURITY.md)
 # ---------------------------------------------------------------------------
-OTP_PROVIDER = config('OTP_PROVIDER', default='mock')   # 'mock' | 'twilio' (not wired)
-OTP_TTL_SECONDS = 300
-OTP_DEV_MODE = config('OTP_DEV_MODE', default=True, cast=bool)  # dev-only fixed OTP visibility
+OTP_PROVIDER = config('OTP_PROVIDER', default='mock').lower()  # 'mock' | 'twilio'
+OTP_TTL_SECONDS = config('OTP_TTL_SECONDS', default=300, cast=int)
+OTP_DEV_MODE = config('OTP_DEV_MODE', default=DEBUG, cast=bool)  # echoes OTP only in explicitly enabled dev mode
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
+TWILIO_FROM_NUMBER = config('TWILIO_FROM_NUMBER', default='')
 IDENTITY_PROVIDER = config('IDENTITY_PROVIDER', default='mock_aadhaar')
 
 # ---------------------------------------------------------------------------
