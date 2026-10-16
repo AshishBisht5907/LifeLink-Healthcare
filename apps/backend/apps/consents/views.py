@@ -22,7 +22,10 @@ class ConsentRequestViewSet(viewsets.ModelViewSet):
             return ConsentRequest.objects.filter(patient__user=user)
         if user.role == 'FAMILY':
             return ConsentRequest.objects.filter(
-                patient__family_links__family_user=user, patient__family_links__is_active=True)
+                patient__family_links__family_user=user,
+                patient__family_links__is_active=True,
+                patient__family_links__access_level='FULL_REPRESENTATIVE',
+            )
         staff = get_staff_profile(user)
         if staff:
             return ConsentRequest.objects.filter(admission__hospital=staff.hospital)
