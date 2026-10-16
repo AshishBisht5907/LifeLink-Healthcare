@@ -72,8 +72,10 @@ function StaffLoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-24 top-12 h-72 w-72 rounded-full bg-cyan-300/20 blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -left-24 bottom-8 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl" />
+      <div className="app-page-enter relative w-full max-w-md">
         <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </Link>
@@ -82,8 +84,8 @@ function StaffLoginForm() {
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-dark text-white shadow-lg shadow-teal-900/15">
             <HeartPulse className="h-5 w-5" />
           </div>
-          <h1 className="text-lg font-semibold text-foreground">{roleContext.title}</h1>
-          <p className="mt-1 text-xs text-muted">{roleContext.description}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{roleContext.title}</h1>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted">{roleContext.description}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="glass-panel mt-7 space-y-5 rounded-3xl p-6 shadow-xl shadow-teal-950/5 sm:p-7">
@@ -91,7 +93,12 @@ function StaffLoginForm() {
             <Input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required placeholder="e.g. doctor_abc" />
           </Field>
           <Field label="Password">
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <div className="relative">
+              <Input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" className="pr-12" />
+              <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-muted transition hover:text-brand focus-visible:outline-offset-[-3px]">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </Field>
           {needsMfa && (
             <Field label="MFA code" hint="6-digit code from your authenticator app">
