@@ -20,7 +20,7 @@ def test_family_me_endpoint_returns_identity_summary_without_consent(api_client,
         patient=patient,
         family_user=family_user,
         relationship_type='Spouse',
-        access_level='FULL_REPRESENTATIVE',
+        access_level='UPDATES_ONLY',
     )
     Allergy.objects.create(
         patient=patient,
@@ -46,6 +46,9 @@ def test_family_me_endpoint_returns_identity_summary_without_consent(api_client,
     # The full-detail endpoint still enforces consent independently.
     detail_response = api_client.get(f'/api/patients/{patient.id}/')
     assert detail_response.status_code == status.HTTP_403_FORBIDDEN
+    # Updates-only links can read the patient-visible status feed but not the clinical profile.
+    status_response = api_client.get(f'/api/patients/{patient.id}/live_status/')
+    assert status_response.status_code == status.HTTP_200_OK
 
 
 
