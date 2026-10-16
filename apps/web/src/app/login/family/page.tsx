@@ -66,16 +66,16 @@ export default function FamilyRegistrationPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+    <div className="app-page-enter relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
       <div className="w-full max-w-md space-y-5">
         <Link href="/login/patient" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to patient login
         </Link>
         <div className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-white">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-dark text-white shadow-lg shadow-teal-900/15">
             <HeartHandshake className="h-6 w-6" />
           </div>
-          <h1 className="text-xl font-semibold">Join LifeLink as family</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Join LifeLink as family</h1>
           <p className="mt-1 text-sm text-muted">Enter the patient's LifeLink ID. They must approve the link before you can view their record.</p>
         </div>
         <Card className="space-y-4 p-5">
