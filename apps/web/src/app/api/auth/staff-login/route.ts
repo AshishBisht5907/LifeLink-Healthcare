@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setSessionTokens } from '@/lib/session';
 import { DJANGO_API_URL } from '@/lib/serverApi';
 
 export async function POST(req: NextRequest) {
@@ -18,8 +17,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Login response was incomplete. Check the Django auth endpoint.' }, { status: 502 });
     }
 
-    await setSessionTokens(data.access, data.refresh);
-    return NextResponse.json({ user: data.user });
+    return NextResponse.json({ user: data.user, access: data.access, refresh: data.refresh });
   } catch (error) {
     console.error('LifeLink staff login API error:', error);
     return NextResponse.json({ message: 'Could not connect to Django. Check that the backend is running on 127.0.0.1:8000.' }, { status: 503 });
