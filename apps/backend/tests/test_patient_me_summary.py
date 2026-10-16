@@ -133,11 +133,11 @@ def test_family_registration_creates_pending_link_that_patient_can_activate(
     link.refresh_from_db()
     assert link.is_active is True
 
-    # Family discovery becomes available after approval, but clinical details
-    # still require the patient's separate consent.
+    # The patient-approved full-representative link grants record access.
+    # Procedure consent remains a separate workflow and cannot lock the profile.
     api_client.force_authenticate(user=family_user)
     summary_response = api_client.get('/api/patients/me/')
     assert summary_response.status_code == status.HTTP_200_OK
     assert summary_response.data[0]['id'] == str(patient.id)
     detail_response = api_client.get(f'/api/patients/{patient.id}/')
-    assert detail_response.status_code == status.HTTP_403_FORBIDDEN
+    assert detail_response.status_code == status.HTTP_200_OK
