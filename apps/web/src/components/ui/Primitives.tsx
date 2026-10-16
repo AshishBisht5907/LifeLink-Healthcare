@@ -83,7 +83,7 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
       {...props}
       className={clsx(
         'w-full min-h-10 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-foreground outline-none transition-all placeholder:text-muted/75',
-        'focus:border-brand focus:ring-2 focus:ring-brand/15',
+        'focus:border-brand focus:ring-4 focus:ring-brand/10',
         props.className
       )}
     />
@@ -95,7 +95,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     <select
       {...props}
       className={clsx(
-        'w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none transition-shadow',
+        'w-full min-h-10 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-foreground outline-none transition-all',
         'focus:border-brand focus:ring-2 focus:ring-brand/15',
         props.className
       )}
