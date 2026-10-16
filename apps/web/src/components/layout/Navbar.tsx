@@ -48,7 +48,7 @@ export function Navbar({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => 
   const isPortal = user.role === 'PATIENT' || user.role === 'FAMILY';
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-surface/95 px-3 backdrop-blur sm:px-5">
+    <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-border/80 bg-surface/75 px-3 shadow-[0_8px_30px_rgba(25,75,85,.04)] backdrop-blur-2xl sm:px-5 lg:px-7">
       <button onClick={onMenu} aria-label={menuOpen ? 'Close menu' : 'Open menu'} className="rounded-lg p-2 hover:bg-neutral-tint lg:hidden">
         {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
@@ -64,7 +64,7 @@ export function Navbar({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => 
       </div>
 
       <div className="ml-auto flex items-center gap-1">
-        <Link href="/notifications" aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} className="relative rounded-lg p-2 text-foreground/70 hover:bg-neutral-tint">
+        <Link href="/notifications" aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} className="relative rounded-xl p-2.5 text-foreground/70 transition-colors hover:bg-neutral-tint hover:text-brand">
           <Bell className="h-5 w-5" />
           {!!unread && (
             <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
@@ -75,7 +75,7 @@ export function Navbar({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => 
 
         <div className="relative" ref={ref}>
           <button onClick={() => setProfileOpen((v) => !v)} aria-haspopup="menu" aria-expanded={profileOpen}
-            className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-neutral-tint">
+            className="flex items-center gap-2 rounded-xl py-1 pl-1 pr-2 transition-colors hover:bg-neutral-tint">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-light text-sm font-semibold text-brand-dark">
               {name.slice(0, 1).toUpperCase()}
             </span>
