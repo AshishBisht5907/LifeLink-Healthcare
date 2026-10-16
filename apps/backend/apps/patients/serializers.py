@@ -93,7 +93,7 @@ class PatientProfileDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PatientProfile
-        fields = ['id', 'lifelink_patient_id', 'full_name', 'date_of_birth', 'gender', 'phone',
+        fields = ['id', 'lifelink_patient_id', 'full_name', 'date_of_birth', 'gender', 'phone', 'address',
                   'blood_group', 'blood_group_verification', 'is_unclaimed',
                   'allergies', 'history_entries', 'medications', 'emergency_contacts',
                   'created_at', 'updated_at']
