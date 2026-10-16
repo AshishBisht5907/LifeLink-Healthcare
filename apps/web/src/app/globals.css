@@ -115,9 +115,9 @@ body {
 .page-heading { letter-spacing: -.035em; }
 .dark body { background-image: radial-gradient(ellipse at 8% 0%, rgba(38, 116, 124, .18), transparent 34rem), radial-gradient(ellipse at 100% 12%, rgba(32, 90, 112, .15), transparent 32rem), linear-gradient(145deg, #0b151b, #0d1b22 58%, #101b24); }
 .dark .bg-white { background-color: var(--surface) !important; }
-.dark [class~="bg-white/95"], .dark [class~="bg-white/90"], .dark [class~="bg-white/80"], .dark [class~="bg-white/75"], .dark [class~="bg-white/70"], .dark [class~="bg-white/65"], .dark [class~="bg-white/60"], .dark [class~="bg-white/50"] { background-color: color-mix(in srgb, var(--surface) 88%, transparent) !important; }
+.dark [class*="bg-white/"] { background-color: color-mix(in srgb, var(--surface) 88%, transparent) !important; }
 .dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700 { color: var(--foreground) !important; }
-.dark .text-slate-600, .dark .text-slate-500 { color: var(--muted) !important; }
+.dark .text-slate-600, .dark .text-slate-500 { color: var(--muted) !important; }\n.dark .text-cyan-800, .dark .text-emerald-800, .dark .text-blue-800, .dark .text-violet-800 { color: var(--brand-dark) !important; }\n.dark .bg-cyan-50, .dark .bg-teal-50, .dark .bg-sky-50, .dark .bg-emerald-50, .dark .bg-blue-50, .dark .bg-violet-50 { background-color: var(--brand-tint) !important; }
 .dark .border-white\/90, .dark .border-white\/80 { border-color: var(--border) !important; }
 .dark input, .dark textarea, .dark select { background-color: var(--surface-raised); color: var(--foreground); border-color: var(--border); }
 .dark input::placeholder, .dark textarea::placeholder { color: var(--muted); }
