@@ -55,6 +55,8 @@ def test_family_me_endpoint_returns_identity_summary_without_consent(api_client,
 @pytest.mark.django_db
 def test_patient_registration_persists_address_from_registration_form(api_client, settings):
     settings.OTP_DEV_MODE = True
+    settings.OTP_PROVIDER = 'mock'
+    settings.DEBUG = True
     phone = '9990004444'
 
     otp_response = api_client.post(
@@ -88,8 +90,11 @@ def test_patient_registration_persists_address_from_registration_form(api_client
 
 @pytest.mark.django_db
 def test_family_registration_creates_pending_link_that_patient_can_activate(
-    api_client, patient, patient_user
+    api_client, patient, patient_user, settings
 ):
+    settings.OTP_DEV_MODE = True
+    settings.OTP_PROVIDER = 'mock'
+    settings.DEBUG = True
     phone = '9990005555'
     otp_response = api_client.post(
         '/api/auth/otp/request/',
