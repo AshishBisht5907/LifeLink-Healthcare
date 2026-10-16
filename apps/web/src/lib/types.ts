@@ -94,6 +94,14 @@ export interface PatientListItem {
   is_unclaimed: boolean;
 }
 
+/** Identity-only data returned by GET /patients/me/. */
+export interface PatientProfileSummary {
+  id: string;
+  lifelink_patient_id: string;
+  full_name: string;
+  is_unclaimed: boolean;
+}
+
 export interface PatientDetail {
   id: string;
   lifelink_patient_id: string;
@@ -101,6 +109,7 @@ export interface PatientDetail {
   date_of_birth: string | null;
   gender: string;
   phone: string;
+  address: string;
   blood_group: string;
   blood_group_verification: VerificationStatus;
   is_unclaimed: boolean;

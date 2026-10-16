@@ -69,6 +69,7 @@ class OTPRequest(models.Model):
     PURPOSE_CHOICES = [
         ('LOGIN', 'Login'),
         ('REGISTER', 'Registration'),
+        ('REGISTER_FAMILY', 'Family Registration'),
         ('CLAIM_PROFILE', 'Claim Unclaimed Profile'),
     ]
 

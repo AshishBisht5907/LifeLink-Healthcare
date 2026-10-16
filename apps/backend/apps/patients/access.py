@@ -1,5 +1,4 @@
 from apps.accounts.permissions import get_staff_profile
-from apps.consents.models import ConsentStatus
 from apps.patients.models import AccessLevel
 
 
@@ -12,11 +11,14 @@ def user_can_access_patient(user, patient) -> bool:
         return patient.user_id == user.id
 
     if user.role == 'FAMILY':
-        family_link = patient.family_links.filter(family_user=user, is_active=True).first()
-        if not family_link or family_link.access_level != AccessLevel.FULL_REPRESENTATIVE:
-            return False
-        latest_consent = patient.consent_requests.order_by('-created_at').first()
-        return bool(latest_consent and latest_consent.status == ConsentStatus.APPROVED)
+        # An active FULL_REPRESENTATIVE link is the patient's explicit
+        # data-sharing approval. Treatment/procedure consent is a separate
+        # workflow and must not accidentally lock or unlock the whole profile.
+        return patient.family_links.filter(
+            family_user=user,
+            is_active=True,
+            access_level=AccessLevel.FULL_REPRESENTATIVE,
+        ).exists()
 
     if user.role in ('HOSPITAL_STAFF', 'HOSPITAL_MANAGEMENT', 'HOSPITAL_ADMIN'):
         staff = get_staff_profile(user)
@@ -71,11 +73,26 @@ def user_has_active_grant(user, patient, hospital_id) -> bool:
     ).exists()
 
 
+def user_can_view_patient_updates(user, patient) -> bool:
+    """Allow family update-only links to see the patient-visible status feed,
+    without granting access to the clinical profile or admission notes.
+    """
+    if user.role == 'FAMILY':
+        return patient.family_links.filter(
+            family_user=user,
+            is_active=True,
+            access_level__in=[AccessLevel.FULL_REPRESENTATIVE, AccessLevel.UPDATES_ONLY],
+        ).exists()
+    return user_can_access_patient(user, patient)
+
+
 def user_can_access_admission(user, admission) -> bool:
     if user.role == 'PATIENT':
         return admission.patient.user_id == user.id
     if user.role == 'FAMILY':
-        return admission.patient.family_links.filter(family_user=user, is_active=True).exists()
+        return admission.patient.family_links.filter(
+            family_user=user, is_active=True, access_level=AccessLevel.FULL_REPRESENTATIVE,
+        ).exists()
     if user.role in ('HOSPITAL_STAFF', 'HOSPITAL_MANAGEMENT', 'HOSPITAL_ADMIN'):
         staff = get_staff_profile(user)
         return bool(staff) and staff.hospital_id == admission.hospital_id

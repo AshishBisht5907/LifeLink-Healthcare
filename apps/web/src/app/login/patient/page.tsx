@@ -242,6 +242,10 @@ function PatientLoginForm() {
           </div>
         )}
 
+        <p className="mb-4 text-center text-xs text-muted">
+          Joining as a family member? <Link href="/login/family" className="font-medium text-brand-dark underline">Create a family account</Link>
+        </p>
+
         {/* Progress indicator for registration */}
         {progress && (
           <div className="mb-4 flex items-center gap-2 justify-center">

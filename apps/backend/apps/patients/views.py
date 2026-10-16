@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from apps.accounts.permissions import IsStaffOrManagementOrAdmin, get_staff_profile
 from apps.audit.utils import log_action
 from apps.patients import access_grants
-from apps.patients.access import user_can_access_patient, user_can_manage_family_links
+from apps.patients.access import user_can_access_patient, user_can_manage_family_links, user_can_view_patient_updates
 from apps.patients.models import (
     AccessGrantStatus, Allergy, DataSource, EmergencyContact, FamilyRelationship,
     MedicalHistoryEntry, Medication, PatientAccessGrant, PatientProfile, VerificationStatus,
@@ -18,6 +18,7 @@ from apps.patients.serializers import (
     AllergySerializer, ClaimPatientProfileSerializer, CreateUnclaimedPatientSerializer,
     EmergencyContactSerializer, FamilyRelationshipSerializer, MedicalHistoryEntrySerializer,
     MedicationSerializer, PatientProfileDetailSerializer, PatientProfileListSerializer,
+    PatientProfileSummarySerializer,
 )
 from apps.patients.services import generate_lifelink_patient_id
 from apps.workflow.models import RequestStatus
@@ -74,7 +75,7 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
             )
         else:
             raise PermissionDenied('This endpoint is for patient/family accounts only.')
-        return Response(PatientProfileDetailSerializer(patients, many=True).data)
+        return Response(PatientProfileSummarySerializer(patients, many=True).data)
 
     @action(detail=False, methods=['get'])
     def search(self, request):
@@ -265,9 +266,10 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
     def live_status(self, request, pk=None):
         """Section 4 — the family-facing feed. Only `is_family_visible`
         requests in an active (non-terminal) state are shown; internal
-        noise never reaches here."""
+        noise never reaches here. Updates-only links may read this feed but
+        cannot open the full clinical profile."""
         patient = self.get_object()
-        if not user_can_access_patient(request.user, patient):
+        if not user_can_view_patient_updates(request.user, patient):
             raise PermissionDenied('You are not authorised to view this patient.')
 
         active_statuses = [s for s in RequestStatus.values if s not in

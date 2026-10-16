@@ -1,13 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Info, LockKeyhole, PauseCircle, PlayCircle, Unlock, Users } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/lib/useApi';
-import { consentsApi, patientsApi } from '@/lib/api';
+import { patientsApi } from '@/lib/api';
 import { useLinkedPatients } from '@/lib/useMyPatient';
-import { explainFamilyAccess, latestConsentStatus, type FamilyAccessKind } from '@/lib/familyAccess';
+import { explainFamilyAccess, type FamilyAccessKind } from '@/lib/familyAccess';
 import { serverMessage } from '@/lib/errorMessages';
 import { formatDate, friendlyError } from '@/lib/format';
 import { Button, Card, CardHeader } from '@/components/ui/Primitives';
@@ -19,7 +18,6 @@ import type { FamilyRelationship } from '@/lib/types';
 const LEVEL: Record<string, string> = { FULL_REPRESENTATIVE: 'Full representative', UPDATES_ONLY: 'Updates only', LIMITED: 'Limited' };
 const TONE: Record<FamilyAccessKind, string> = {
   ACTIVE: 'bg-success-tint text-success', PAUSED: 'bg-neutral-tint text-muted', UPDATES_ONLY: 'bg-info-tint text-info',
-  NO_CONSENT: 'bg-warning-tint text-warning', CONSENT_PENDING: 'bg-warning-tint text-warning', CONSENT_DECLINED: 'bg-danger-tint text-danger',
 };
 
 export function FamilyAccessView() {
@@ -31,13 +29,12 @@ export function FamilyAccessView() {
 
   // Patient: links about their record. Family: their own links. The backend scopes both.
   const links = useApi(() => (isPatient ? patientsApi.familyLinksForPatient(ownId!) : patientsApi.familyLinks()), [isPatient, ownId], !pLoading && (!isPatient || !!ownId));
-  const consents = useApi(() => consentsApi.list(), [], !pLoading);
 
   const [target, setTarget] = useState<FamilyRelationship | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  if (pLoading || links.loading || consents.loading) return <LoadingBlock rows={4} />;
+  if (pLoading || links.loading) return <LoadingBlock rows={4} />;
   if (failed) return <Card><ErrorState description={friendlyError()} onRetry={refetchPatients} /></Card>;
   if (links.error) return <Card><ErrorState status={links.error.status} description={friendlyError(links.error.status)} onRetry={links.refetch} /></Card>;
 
@@ -65,8 +62,8 @@ export function FamilyAccessView() {
       <div className="flex items-start gap-3 rounded-xl border border-info/25 bg-info-tint px-4 py-3 text-sm">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
         <div className="space-y-1">
-          <p className="font-medium">A family member can open the record only when all three are true:</p>
-          <p className="text-foreground/80">the link is switched on, their access level is Full representative, and the patient&rsquo;s most recent <Link href="/portal/consents" className="font-medium text-brand-dark underline">consent</Link> is approved.</p>
+          <p className="font-medium">A family member can open the record when both conditions are met:</p>
+          <p className="text-foreground/80">the patient has activated the link and the access level is Full representative. Procedure consent is separate and does not control family profile access.</p>
         </div>
       </div>
 
@@ -74,11 +71,11 @@ export function FamilyAccessView() {
         <CardHeader title={isPatient ? 'People linked to you' : 'Your links'} subtitle={rows.length ? `${rows.length} ${rows.length === 1 ? 'link' : 'links'}` : undefined} />
         {rows.length === 0 ? (
           <EmptyState icon={<Users className="h-5 w-5" />} title={isPatient ? 'No family members linked' : 'You are not linked to any patient'}
-            description={isPatient ? 'Linking a family member is not available from this screen yet. Ask your hospital to link their account.' : 'A hospital or the patient must link your account first.'} />
+            description={isPatient ? 'Ask the family member to register at /login/family using your LifeLink ID. Their request will appear here for your approval.' : 'Register at /login/family using the patient’s LifeLink ID, then ask the patient to activate your pending link.'} />
         ) : (
           <ul className="divide-y divide-border">
             {rows.map((l) => {
-              const ex = explainFamilyAccess(l, latestConsentStatus(consents.data?.results ?? [], l.patient));
+              const ex = explainFamilyAccess(l);
               return (
                 <li key={l.id} className="space-y-3 px-5 py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -109,7 +106,7 @@ export function FamilyAccessView() {
             <p className="text-sm text-foreground/80">
               {target.is_active
                 ? `${target.family_username} will stop seeing your care information straight away. You can restore this at any time.`
-                : `${target.family_username} will be able to see your record again if your access level and consent allow it.`}
+                : `${target.family_username} will be able to see your record again if the access level is Full representative.`}
             </p>
             {error && <p role="alert" className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
             <div className="flex justify-end gap-2">

@@ -68,19 +68,33 @@ def test_gap1_full_representative_family_cannot_decide_consent(family_user, pend
 def test_gap1_updates_only_family_cannot_decide_consent(patient, pending_consent):
     low = mk_user('lowfam', phone='9100000002')
     FamilyRelationship.objects.create(patient=patient, family_user=low, relationship_type='Cousin', access_level='UPDATES_ONLY')
-    assert auth_client(low).post(f'/api/consents/{pending_consent.id}/decide/', {'action': 'APPROVE'}, format='json').status_code == 403
+    # The queryset hides consent objects from updates-only family links (404) rather than revealing them (403).
+    assert auth_client(low).post(f'/api/consents/{pending_consent.id}/decide/', {'action': 'APPROVE'}, format='json').status_code in (403, 404)
 
 
-def test_gap1_family_cannot_approve_to_unlock_their_own_access(patient, admission, doctor_a):
-    """The circular attack: a full-representative link with no approved consent
-    must not be able to approve its way into the record."""
+def test_gap1_family_data_access_comes_from_patient_approved_link_not_procedure_consent(
+    patient, admission, doctor_a
+):
+    """A full-representative link is data-sharing approval; treatment consent is separate."""
     fam = mk_user('selfunlock', phone='9100000003')
-    FamilyRelationship.objects.create(patient=patient, family_user=fam, relationship_type='Friend', access_level='FULL_REPRESENTATIVE')
-    consent = ConsentRequest.objects.create(patient=patient, admission=admission, procedure_description='x', requested_by=doctor_a)
+    FamilyRelationship.objects.create(
+        patient=patient,
+        family_user=fam,
+        relationship_type='Friend',
+        access_level='FULL_REPRESENTATIVE',
+        is_active=True,
+    )
+    consent = ConsentRequest.objects.create(
+        patient=patient, admission=admission,
+        procedure_description='x', requested_by=doctor_a,
+    )
     c = auth_client(fam)
-    assert c.get(f'/api/patients/{patient.id}/').status_code == 403
+    assert c.get(f'/api/patients/{patient.id}/').status_code == 200
+    # A family member still cannot approve a treatment/procedure consent.
     assert c.post(f'/api/consents/{consent.id}/decide/', {'action': 'APPROVE'}, format='json').status_code == 403
-    assert c.get(f'/api/patients/{patient.id}/').status_code == 403
+    consent.refresh_from_db()
+    assert consent.status == ConsentStatus.PENDING
+    assert c.get(f'/api/patients/{patient.id}/').status_code == 200
 
 
 def test_gap1_patient_can_still_approve_decline_and_ask(patient, patient_user, pending_consent):
@@ -100,7 +114,7 @@ def test_gap1_other_patient_and_staff_still_cannot_decide(pending_consent, docto
 
 
 def test_gap1_family_can_still_view_consents_and_access_when_rules_allow(family_user, patient):
-    """Existing consent/access rules are untouched: approved consent + full link = access."""
+    """A patient-activated full-representative link grants data access; procedure consent remains a separate workflow."""
     c = auth_client(family_user)
     assert c.get('/api/consents/').status_code == 200
     assert c.get(f'/api/patients/{patient.id}/').status_code == 200
@@ -221,7 +235,7 @@ def test_gap4_family_cannot_widen_edit_or_delete_their_own_link(patient):
 
 
 def test_gap4_family_with_full_access_cannot_edit_or_delete_their_own_link(family_user, patient):
-    """The real exposure: a full-representative family member WITH approved consent
+    """The real exposure: a full-representative family member with patient-approved access
     used to pass the 'can access this patient' check and could change or delete links."""
     link = FamilyRelationship.objects.get(patient=patient, family_user=family_user)
     assert auth_client(family_user).get(f'/api/patients/{patient.id}/').status_code == 200   # they do have access
@@ -338,3 +352,19 @@ def test_view_access_rules_are_unchanged(management_a, doctor_a, management_b, p
     assert auth_client(doctor_a).get(f'/api/patients/{patient.id}/').status_code == 200
     assert auth_client(management_b).get(f'/api/patients/{patient.id}/').status_code == 403
     assert auth_client(management_a).get(f'/api/patients/{self_registered.id}/').status_code == 403
+
+
+def test_updates_only_family_can_see_status_feed_but_not_admission_notes(patient, admission):
+    """UPDATES_ONLY grants status visibility, not the clinical admission detail."""
+    fam = mk_user('updatesonly', phone='9100000099')
+    FamilyRelationship.objects.create(
+        patient=patient,
+        family_user=fam,
+        relationship_type='Relative',
+        access_level='UPDATES_ONLY',
+        is_active=True,
+    )
+    client = auth_client(fam)
+    assert client.get(f'/api/patients/{patient.id}/live_status/').status_code == 200
+    assert client.get(f'/api/patients/{patient.id}/').status_code == 403
+    assert client.get(f'/api/admissions/{admission.id}/').status_code == 403

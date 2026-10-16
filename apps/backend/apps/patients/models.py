@@ -55,6 +55,7 @@ class PatientProfile(models.Model):
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, default='U')
     phone = models.CharField(max_length=20, blank=True)
+    address = models.TextField(blank=True, default='')
 
     blood_group = models.CharField(max_length=3, choices=BLOOD_GROUP_CHOICES, blank=True)
     blood_group_verification = models.CharField(

@@ -3,7 +3,7 @@ import type {
   Department, Document as LLDocument, EmergencyContact, FamilyCommunicationLog, FamilyRelationship,
   Hospital, HospitalCapacity, LiveStatusItem, Me, MedicalHistoryEntry, Medication, Notification,
   NotificationPreference, Paginated, PatientDetail, PatientListItem, Referral, ServiceRequest, StatusTransition,
-  StaffProfile, Transfer, TransferPacket, PatientAccessGrant, PatientSearchRow,
+  StaffProfile, Transfer, TransferPacket, PatientAccessGrant, PatientSearchRow, PatientProfileSummary,
 } from './types';
 
 export class ApiError extends Error {
@@ -93,7 +93,7 @@ export const authApi = {
     authRequest<{ user: Me }>('staff-login', { username, password, mfa_code }),
   otpRequest: (
     phone: string,
-    purpose: 'LOGIN' | 'REGISTER' | 'CLAIM_PROFILE',
+    purpose: 'LOGIN' | 'REGISTER' | 'REGISTER_FAMILY' | 'CLAIM_PROFILE',
     data?: {
       full_name?: string;
       date_of_birth?: string;
@@ -109,13 +109,15 @@ export const authApi = {
     }),
   otpVerify: (
     phone: string,
-    purpose: 'LOGIN' | 'REGISTER' | 'CLAIM_PROFILE',
+    purpose: 'LOGIN' | 'REGISTER' | 'REGISTER_FAMILY' | 'CLAIM_PROFILE',
     code: string,
     full_name?: string,
     date_of_birth?: string,
     gender?: string,
     email?: string,
-    address?: string
+    address?: string,
+    lifelink_patient_id?: string,
+    relationship_type?: string
   ) =>
     authRequest<{ user: Me }>('otp-verify', {
       phone,
@@ -126,6 +128,8 @@ export const authApi = {
       gender,
       email,
       address,
+      lifelink_patient_id,
+      relationship_type,
     }),
   logout: () => authRequest<{ detail: string }>('logout'),
   verifyAadhaar: (aadhaar_number: string, demo_otp: string) =>
@@ -138,7 +142,7 @@ export const authApi = {
 // ---------------------------------------------------------------------------
 
 export const patientsApi = {
-  me: () => get<PatientDetail[]>('patients/me/'),
+  me: () => get<PatientProfileSummary[]>('patients/me/'),
   // A family user gets their own links (all linked patients); a patient gets none.
   familyLinks: () => get<Paginated<FamilyRelationship>>('patients/family-links/'),
   // Links for one patient. The backend allows this only for someone who may access that patient.

@@ -115,7 +115,7 @@ class TestWelcomeSMSEndpoint:
 
 class TestPatientRegistrationHandoff:
     def test_registration_claims_matching_unclaimed_profile(self, client, unclaimed_patient):
-        with override_settings(OTP_DEV_MODE=True):
+        with override_settings(OTP_DEV_MODE=True, OTP_PROVIDER='mock', DEBUG=True):
             otp_response = client.post('/api/auth/otp/request/', {
                 'phone': unclaimed_patient.phone,
                 'purpose': 'REGISTER',

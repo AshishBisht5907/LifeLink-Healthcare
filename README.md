@@ -1,8 +1,7 @@
 # LifeLink — Connected Care. Better Tomorrow.
 
 A patient-centric emergency health & hospital care coordination platform.
-**Full stack is now implemented and live-tested: Django REST backend +
-Next.js 16 (TypeScript) frontend.**
+**Full-stack implementation: Django REST backend + Next.js 16 (TypeScript) frontend. Current build/test status is tracked by GitHub Actions on pull requests.**
 
 ## What's real vs. what's mocked
 
@@ -18,8 +17,8 @@ Next.js 16 (TypeScript) frontend.**
 | AI summary engine | Real retrieval-and-organize logic over actual DB records with mandatory source references — no live LLM call (see `docs/AI.md`) |
 | Next.js frontend | **Built.** Role-based dashboards for Patient/Family, Hospital Staff, Hospital Management, Hospital Admin — see `apps/web` |
 | Session security | httpOnly cookies minted server-side by Next.js route handlers; the browser never sees a JWT. All API calls proxy through `/api/proxy/*`, which attaches the Bearer token and transparently refreshes on 401 |
-| OTP delivery | Provider abstraction is real; only a mock/dev provider is wired (no real SMS sent) |
-| Aadhaar identity verification | **Mock/demo only** — no real UIDAI integration |
+| OTP delivery | Mock provider for local demo; configurable Twilio Programmable SMS provider is implemented. Real delivery requires your Twilio credentials, an enabled sender, and E.164 phone numbers. |
+| Aadhaar identity verification | **Mock/demo only** — no real UIDAI integration or approval; use synthetic demo data only |
 | S3 storage, Celery/Redis, WebSockets | Not implemented — documents use local disk storage |
 | React Native mobile app | Not built (out of scope for this pass — see `docs/DEMO_GUIDE.md`) |
 
@@ -32,7 +31,7 @@ lifelink/
       config/
       apps/                # accounts, hospitals, patients, admissions, workflow,
                             # consents, referrals, documents, notifications, audit, ai_insights
-      tests/               # 93 automated tests
+      tests/               # automated backend regression tests
     web/                   # Next.js 16 + TypeScript frontend
       src/
         app/                # role-based route groups: portal, staff, management, admin
@@ -53,7 +52,7 @@ cd apps/backend
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 cp .env.example .env
-# Postgres must be running and the database in .env must already exist
+# The supplied .env.example uses SQLite by default. For PostgreSQL, set USE_SQLITE=False and configure DB_*
 ./venv/bin/python manage.py migrate
 ./venv/bin/python manage.py seed_demo
 ./venv/bin/python manage.py runserver
@@ -70,5 +69,5 @@ npm run build && npm start
 
 Open http://localhost:3000 — role selection screen. See `docs/DEMO_GUIDE.md` for demo credentials.
 
-Run backend tests: `cd apps/backend && ./venv/bin/python -m pytest tests/ -v` (93 tests).
+Run backend tests: `cd apps/backend && ./venv/bin/python -m pytest tests/ -v` (the suite grows as regressions are added).
 Run frontend build check: `cd apps/web && npx next build`.
