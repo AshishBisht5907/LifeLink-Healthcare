@@ -193,8 +193,8 @@ function PatientLoginForm() {
   const progress = getProgress();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+      <div className="app-page-enter relative w-full max-w-md">
         <Link
           href="/"
           className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-muted hover:text-foreground"
@@ -203,11 +203,11 @@ function PatientLoginForm() {
         </Link>
 
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-white">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-dark text-white shadow-lg shadow-teal-900/15">
             <HeartPulse className="h-5 w-5" />
           </div>
-          <h1 className="text-lg font-semibold text-foreground">Patient & Family Access</h1>
-          <p className="mt-1 text-xs text-muted">Secure sign-in with a one-time code sent to your phone.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Patient & Family Access</h1>
+          <p className="mt-2 text-sm text-muted">Secure sign-in with a one-time code sent to your phone.</p>
         </div>
 
         {/* Show mode toggle only on initial phone entry */}
@@ -266,7 +266,7 @@ function PatientLoginForm() {
           </div>
         )}
 
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <div className="glass-panel rounded-3xl p-6 shadow-xl shadow-teal-950/5 sm:p-7">
           {/* LOGIN or initial REGISTER phone entry */}
           {step === 'PHONE' && (
             <form onSubmit={requestOtp} className="space-y-4">

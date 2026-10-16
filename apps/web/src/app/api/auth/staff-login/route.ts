@@ -1,22 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setSessionTokens } from '@/lib/session';
-
-const DJANGO_API_URL = process.env.DJANGO_API_URL || 'http://localhost:8000';
+import { DJANGO_API_URL } from '@/lib/serverApi';
 
 export async function POST(req: NextRequest) {
-  const body = await req.text();
-  const resp = await fetch(`${DJANGO_API_URL}/api/auth/staff/login/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  });
-  const data = await resp.json();
+  try {
+    const body = await req.text();
+    const resp = await fetch(`${DJANGO_API_URL}/api/auth/staff/login/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      cache: 'no-store',
+    });
+    const data = await resp.json().catch(() => ({}));
 
-  if (!resp.ok) {
-    return NextResponse.json(data, { status: resp.status });
+    if (!resp.ok) return NextResponse.json(data, { status: resp.status });
+    if (!data.access || !data.refresh || !data.user) {
+      return NextResponse.json({ message: 'Login response was incomplete. Check the Django auth endpoint.' }, { status: 502 });
+    }
+
+    await setSessionTokens(data.access, data.refresh);
+    return NextResponse.json({ user: data.user });
+  } catch (error) {
+    console.error('LifeLink staff login API error:', error);
+    return NextResponse.json({ message: 'Could not connect to Django. Check that the backend is running on 127.0.0.1:8000.' }, { status: 503 });
   }
-
-  await setSessionTokens(data.access, data.refresh);
-  // Tokens never reach the browser — only the user object does.
-  return NextResponse.json({ user: data.user });
 }

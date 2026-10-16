@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { patientsApi } from '@/lib/api';
+import { ApiError, patientsApi } from '@/lib/api';
 
 interface MyPatientResult {
   patientId: string | null;
@@ -76,6 +76,7 @@ export function useLinkedPatients() {
   const [patients, setPatients] = useState<LinkedPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [failureStatus, setFailureStatus] = useState<number | undefined>(undefined);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -83,12 +84,19 @@ export function useLinkedPatients() {
     let cancelled = false;
     setLoading(true);
     setFailed(false);
+    setFailureStatus(undefined);
     patientsApi.me()
       .then((rows) => !cancelled && setPatients(rows.map((r) => ({ id: r.id, lifelink_patient_id: r.lifelink_patient_id, full_name: r.full_name }))))
-      .catch(() => !cancelled && setFailed(true))
+      .catch((err) => {
+        if (cancelled) return;
+        setFailed(true);
+        setFailureStatus(err instanceof ApiError ? err.status : undefined);
+      })
       .finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, tick]);
 
-  return { patients, loading, failed, refetch: () => setTick((t) => t + 1) };
+  return { patients, loading, failed, failureStatus, refetch: () => setTick((t) => t + 1) };
 }

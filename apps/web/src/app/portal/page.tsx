@@ -21,11 +21,11 @@ import { RoleBasedActionCenter } from '@/components/management/RoleBasedActionCe
 
 export default function PortalDashboardPage() {
   const { user } = useAuth();
-  const { patients, loading, failed, refetch } = useLinkedPatients();
+  const { patients, loading, failed, failureStatus, refetch } = useLinkedPatients();
   const [chosen, setChosen] = useState<string | null>(null);
 
   if (loading) return <LoadingBlock rows={6} />;
-  if (failed) return <Card><ErrorState description={friendlyError()} onRetry={refetch} /></Card>;
+  if (failed) return <Card><ErrorState status={failureStatus} description={friendlyError(failureStatus)} onRetry={refetch} /></Card>;
   if (patients.length === 0) {
     return (
       <Card>
