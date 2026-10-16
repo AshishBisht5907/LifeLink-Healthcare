@@ -68,3 +68,12 @@ The last completed CI run before the latest family-onboarding changes reported *
   `ReferralViewSet.create()` is exercised indirectly (via the referral
   tests) but doesn't have a dedicated unit test for that call site.
 - No test exercises `Notification` delivery beyond the in-app model layer.
+
+
+## Browser smoke test and workflow coverage
+
+- Browser smoke test: `cd apps/web && npm run build && npm run start`, then run `npm run test:e2e` in a second terminal. It launches Chromium with Playwright and checks the actual Next.js family registration interaction. Auth HTTP responses are stubbed, so this is a browser/UI test—not a live SMS test.
+- CI installs Chromium and runs the production-built frontend smoke test after the build.
+- Backend workflow regression: `apps/backend/tests/test_workflow_state_machine.py::test_patient_request_waits_for_management_then_routes_to_department` covers patient request creation, automatic department routing, management acceptance, department processing, completion and patient-visible transition history against Django's API.
+- OTP integration regression: `apps/backend/tests/test_otp_providers.py` checks Twilio request construction with a mocked HTTP transport, E.164 validation, delivery failures, and that real-provider OTPs are never echoed. No real SMS is sent by CI.
+- Real Twilio delivery requires account credentials and a permitted sender number configured locally; CI deliberately does not use real credentials or send paid SMS.
