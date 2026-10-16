@@ -12,10 +12,19 @@ const user = {
   mfa_enabled: false,
   staff_profile: null,
 };
+const staffUser = {
+  id: 'e2e-admin-1',
+  username: 'admin_e2e',
+  phone: '',
+  email: '',
+  role: 'HOSPITAL_ADMIN',
+  mfa_enabled: false,
+  staff_profile: { hospital: 'e2e-hospital' },
+};
 
 // Run a tiny local backend double. The browser still goes through the real
-// Next.js OTP route handlers and proxy, including httpOnly cookie creation.
-// No credentials or SMS provider are involved in this test.
+// Next.js auth route handlers and proxy, including httpOnly cookie creation.
+// No real credentials or SMS provider are involved in this test.
 const backend = createServer(async (req, res) => {
   let body = '';
   for await (const chunk of req) body += chunk;
@@ -31,8 +40,18 @@ const backend = createServer(async (req, res) => {
   if (req.method === 'POST' && path === '/api/auth/otp/verify/') {
     return json(200, { user, access: 'e2e-access-token', refresh: 'e2e-refresh-token' });
   }
+  if (req.method === 'POST' && path === '/api/auth/staff/login/') {
+    const credentials = JSON.parse(body || '{}');
+    if (credentials.username !== 'admin_e2e' || credentials.password !== 'DemoPass123!') {
+      return json(401, { detail: 'Invalid credentials.' });
+    }
+    return json(200, { user: staffUser, access: 'e2e-staff-access-token', refresh: 'e2e-staff-refresh-token' });
+  }
   if (req.method === 'GET' && path === '/api/auth/me/') {
-    return json(req.headers.authorization ? 200 : 401, req.headers.authorization ? user : { detail: 'Authentication required.' });
+    const authorization = req.headers.authorization || '';
+    if (authorization === 'Bearer e2e-staff-access-token') return json(200, staffUser);
+    if (authorization === 'Bearer e2e-access-token') return json(200, user);
+    return json(401, { detail: 'Authentication required.' });
   }
   if (path.startsWith('/api/')) {
     return json(200, { count: 0, next: null, previous: null, results: [] });
@@ -67,7 +86,16 @@ try {
   await page.getByRole('button', { name: 'Verify and create account' }).click();
   await page.waitForURL('**/portal', { timeout: 10000 });
   await page.getByText('Family account created').waitFor();
-  console.log('PASS: home -> patient login -> family registration -> Next.js OTP routes -> proxy session -> portal');
+  console.log('PASS: family OTP login creates a server-side session and opens the portal');
+
+  // Staff login must also set the same httpOnly session cookies before the
+  // client refreshes /auth/me and enters a role-protected dashboard.
+  await page.goto(`${baseURL}/login/staff?role=admin`);
+  await page.getByPlaceholder('e.g. doctor_abc').fill('admin_e2e');
+  await page.locator('input[autocomplete="current-password"]').fill('DemoPass123!');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.waitForURL('**/admin', { timeout: 10000 });
+  console.log('PASS: staff login creates a server-side session and opens the admin dashboard');
 } finally {
   await browser.close();
   await new Promise(resolve => backend.close(resolve));
