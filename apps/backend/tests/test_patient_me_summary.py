@@ -2,7 +2,7 @@ import pytest
 from rest_framework import status
 
 from apps.accounts.models import Role, User
-from apps.patients.models import Allergy, FamilyRelationship
+from apps.patients.models import Allergy, FamilyRelationship, PatientProfile
 
 
 @pytest.mark.django_db
@@ -45,3 +45,38 @@ def test_family_me_endpoint_returns_identity_summary_without_consent(api_client,
     # The full-detail endpoint still enforces consent independently.
     detail_response = api_client.get(f'/api/patients/{patient.id}/')
     assert detail_response.status_code == status.HTTP_403_FORBIDDEN
+
+
+
+@pytest.mark.django_db
+def test_patient_registration_persists_address_from_registration_form(api_client, settings):
+    settings.OTP_DEV_MODE = True
+    phone = '9990004444'
+
+    otp_response = api_client.post(
+        '/api/auth/otp/request/',
+        {'phone': phone, 'purpose': 'REGISTER'},
+        format='json',
+    )
+    assert otp_response.status_code == status.HTTP_200_OK
+    code = otp_response.data['dev_otp']
+
+    registration_response = api_client.post(
+        '/api/auth/otp/verify/',
+        {
+            'phone': phone,
+            'purpose': 'REGISTER',
+            'code': code,
+            'full_name': 'Address Test Patient',
+            'date_of_birth': '2000-02-03',
+            'gender': 'U',
+            'email': 'address-test@example.com',
+            'address': '12 Test Road, Srinagar',
+        },
+        format='json',
+    )
+
+    assert registration_response.status_code == status.HTTP_200_OK
+    profile = PatientProfile.objects.get(user__phone=phone)
+    assert profile.full_name == 'Address Test Patient'
+    assert profile.address == '12 Test Road, Srinagar'
