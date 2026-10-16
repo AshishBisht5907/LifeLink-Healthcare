@@ -80,3 +80,59 @@ def test_patient_registration_persists_address_from_registration_form(api_client
     profile = PatientProfile.objects.get(user__phone=phone)
     assert profile.full_name == 'Address Test Patient'
     assert profile.address == '12 Test Road, Srinagar'
+
+
+@pytest.mark.django_db
+def test_family_registration_creates_pending_link_that_patient_can_activate(
+    api_client, patient, patient_user
+):
+    phone = '9990005555'
+    otp_response = api_client.post(
+        '/api/auth/otp/request/',
+        {'phone': phone, 'purpose': 'REGISTER_FAMILY'},
+        format='json',
+    )
+    assert otp_response.status_code == status.HTTP_200_OK
+
+    registration_response = api_client.post(
+        '/api/auth/otp/verify/',
+        {
+            'phone': phone,
+            'purpose': 'REGISTER_FAMILY',
+            'code': otp_response.data['dev_otp'],
+            'full_name': 'Family Test User',
+            'lifelink_patient_id': patient.lifelink_patient_id,
+            'relationship_type': 'Sibling',
+        },
+        format='json',
+    )
+    assert registration_response.status_code == status.HTTP_200_OK
+    family_user = User.objects.get(phone=phone)
+    assert family_user.role == Role.FAMILY
+
+    link = FamilyRelationship.objects.get(patient=patient, family_user=family_user)
+    assert link.is_active is False
+
+    # The patient sees the pending link and explicitly activates it.
+    api_client.force_authenticate(user=patient_user)
+    links_response = api_client.get(f'/api/patients/family-links/?patient={patient.id}')
+    assert links_response.status_code == status.HTTP_200_OK
+    assert any(row['id'] == str(link.id) and not row['is_active'] for row in links_response.data['results'])
+
+    activate_response = api_client.patch(
+        f'/api/patients/family-links/{link.id}/',
+        {'is_active': True},
+        format='json',
+    )
+    assert activate_response.status_code == status.HTTP_200_OK
+    link.refresh_from_db()
+    assert link.is_active is True
+
+    # Family discovery becomes available after approval, but clinical details
+    # still require the patient's separate consent.
+    api_client.force_authenticate(user=family_user)
+    summary_response = api_client.get('/api/patients/me/')
+    assert summary_response.status_code == status.HTTP_200_OK
+    assert summary_response.data[0]['id'] == str(patient.id)
+    detail_response = api_client.get(f'/api/patients/{patient.id}/')
+    assert detail_response.status_code == status.HTTP_403_FORBIDDEN
