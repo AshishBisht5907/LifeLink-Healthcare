@@ -55,7 +55,10 @@ export function DocumentsPanel({ patientId, documents, onChanged, canUpload, can
     setError('');
     try {
       const { download_path } = await documentsApi.signedUrl(doc.id); // short-lived link issued after the server checks access
-      if (!window.open(download_path, '_blank')) window.location.assign(download_path);
+      // Django's path must go through the Next.js proxy so the browser reaches
+      // the backend without bypassing the app's configured API routing.
+      const proxiedDownloadPath = download_path.replace(/^\/api\//, '/api/proxy/');
+      if (!window.open(proxiedDownloadPath, '_blank')) window.location.assign(proxiedDownloadPath);
     } catch (err) { setError(serverMessage(err, [403, 404])); }
   }
 
