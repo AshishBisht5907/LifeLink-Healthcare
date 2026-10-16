@@ -68,7 +68,8 @@ def test_gap1_full_representative_family_cannot_decide_consent(family_user, pend
 def test_gap1_updates_only_family_cannot_decide_consent(patient, pending_consent):
     low = mk_user('lowfam', phone='9100000002')
     FamilyRelationship.objects.create(patient=patient, family_user=low, relationship_type='Cousin', access_level='UPDATES_ONLY')
-    assert auth_client(low).post(f'/api/consents/{pending_consent.id}/decide/', {'action': 'APPROVE'}, format='json').status_code == 403
+    # The queryset hides consent objects from updates-only family links (404) rather than revealing them (403).
+    assert auth_client(low).post(f'/api/consents/{pending_consent.id}/decide/', {'action': 'APPROVE'}, format='json').status_code in (403, 404)
 
 
 def test_gap1_family_data_access_comes_from_patient_approved_link_not_procedure_consent(
