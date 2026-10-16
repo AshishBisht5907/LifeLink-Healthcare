@@ -76,6 +76,7 @@ export function useLinkedPatients() {
   const [patients, setPatients] = useState<LinkedPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [failureStatus, setFailureStatus] = useState<number | undefined>(undefined);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -83,11 +84,18 @@ export function useLinkedPatients() {
     let cancelled = false;
     setLoading(true);
     setFailed(false);
+    setFailureStatus(undefined);
     patientsApi.me()
       .then((rows) => !cancelled && setPatients(rows.map((r) => ({ id: r.id, lifelink_patient_id: r.lifelink_patient_id, full_name: r.full_name }))))
-      .catch((err) => {\n        if (cancelled) return;\n        setFailed(true);\n        setFailureStatus(err instanceof ApiError ? err.status : undefined);\n      })
+      .catch((err) => {
+        if (cancelled) return;
+        setFailed(true);
+        setFailureStatus(err instanceof ApiError ? err.status : undefined);
+      })
       .finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, tick]);
 
   return { patients, loading, failed, failureStatus, refetch: () => setTick((t) => t + 1) };
