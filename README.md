@@ -17,8 +17,8 @@ A patient-centric emergency health & hospital care coordination platform.
 | AI summary engine | Real retrieval-and-organize logic over actual DB records with mandatory source references — no live LLM call (see `docs/AI.md`) |
 | Next.js frontend | **Built.** Role-based dashboards for Patient/Family, Hospital Staff, Hospital Management, Hospital Admin — see `apps/web` |
 | Session security | httpOnly cookies minted server-side by Next.js route handlers; the browser never sees a JWT. All API calls proxy through `/api/proxy/*`, which attaches the Bearer token and transparently refreshes on 401 |
-| OTP delivery | Provider abstraction is real; only a mock/dev provider is wired (no real SMS sent) |
-| Aadhaar identity verification | **Mock/demo only** — no real UIDAI integration |
+| OTP delivery | Mock provider for local demo; configurable Twilio Programmable SMS provider is implemented. Real delivery requires your Twilio credentials, an enabled sender, and E.164 phone numbers. |
+| Aadhaar identity verification | **Mock/demo only** — no real UIDAI integration or approval; use synthetic demo data only |
 | S3 storage, Celery/Redis, WebSockets | Not implemented — documents use local disk storage |
 | React Native mobile app | Not built (out of scope for this pass — see `docs/DEMO_GUIDE.md`) |
 
