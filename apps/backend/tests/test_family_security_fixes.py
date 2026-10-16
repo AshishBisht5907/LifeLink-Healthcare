@@ -351,3 +351,19 @@ def test_view_access_rules_are_unchanged(management_a, doctor_a, management_b, p
     assert auth_client(doctor_a).get(f'/api/patients/{patient.id}/').status_code == 200
     assert auth_client(management_b).get(f'/api/patients/{patient.id}/').status_code == 403
     assert auth_client(management_a).get(f'/api/patients/{self_registered.id}/').status_code == 403
+
+
+def test_updates_only_family_can_see_status_feed_but_not_admission_notes(patient, admission):
+    """UPDATES_ONLY grants status visibility, not the clinical admission detail."""
+    fam = mk_user('updatesonly', phone='9100000099')
+    FamilyRelationship.objects.create(
+        patient=patient,
+        family_user=fam,
+        relationship_type='Relative',
+        access_level='UPDATES_ONLY',
+        is_active=True,
+    )
+    client = auth_client(fam)
+    assert client.get(f'/api/patients/{patient.id}/live_status/').status_code == 200
+    assert client.get(f'/api/patients/{patient.id}/').status_code == 403
+    assert client.get(f'/api/admissions/{admission.id}/').status_code == 403
