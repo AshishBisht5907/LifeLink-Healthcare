@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, HeartPulse, LockKeyhole } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, HeartPulse, LockKeyhole } from 'lucide-react';
 import { Button, Field, Input } from '@/components/ui/Primitives';
 import { authApi, ApiError } from '@/lib/api';
 import { useAuth, roleHomePath } from '@/context/AuthContext';
@@ -19,6 +19,7 @@ export default function StaffLoginPage() {
 function StaffLoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
   const [needsMfa, setNeedsMfa] = useState(false);
   const [error, setError] = useState('');
@@ -78,14 +79,14 @@ function StaffLoginForm() {
         </Link>
 
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand text-white">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand-dark text-white shadow-lg shadow-teal-900/15">
             <HeartPulse className="h-5 w-5" />
           </div>
           <h1 className="text-lg font-semibold text-foreground">{roleContext.title}</h1>
           <p className="mt-1 text-xs text-muted">{roleContext.description}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <form onSubmit={handleSubmit} className="glass-panel mt-7 space-y-5 rounded-3xl p-6 shadow-xl shadow-teal-950/5 sm:p-7">
           <Field label="Username">
             <Input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required placeholder="e.g. doctor_abc" />
           </Field>
