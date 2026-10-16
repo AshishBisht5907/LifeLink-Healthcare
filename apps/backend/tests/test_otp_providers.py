@@ -5,7 +5,6 @@ import pytest
 from django.test import override_settings
 
 from apps.accounts.otp import TwilioSMSProvider
-from apps.accounts.models import OTPRequest
 
 
 class FakeResponse:
@@ -63,3 +62,19 @@ def test_sms_delivery_failure_returns_gateway_error_and_never_echoes_otp(api_cli
     assert response.status_code == 502
     assert 'dev_otp' not in response.json()
     assert response.json()['detail'] == 'SMS provider could not send the verification code. Please try again.'
+
+
+@pytest.mark.django_db
+@override_settings(OTP_PROVIDER='twilio', OTP_DEV_MODE=True, DEBUG=True)
+def test_real_provider_never_echoes_otp_even_if_dev_flag_was_misconfigured(api_client, monkeypatch):
+    class SuccessfulProvider:
+        def send(self, *args):
+            return True
+
+    monkeypatch.setattr('apps.accounts.views.get_otp_provider', lambda: SuccessfulProvider())
+    response = api_client.post('/api/auth/otp/request/', {
+        'phone': '+15550004444',
+        'purpose': 'REGISTER',
+    }, format='json')
+    assert response.status_code == 200
+    assert 'dev_otp' not in response.json()
