@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import IdentityVerification, OTPRequest, Role, User
-from apps.patients.models import PatientProfile
+from apps.patients.models import AccessLevel, FamilyRelationship, PatientProfile
 from apps.patients.services import generate_lifelink_patient_id
 from apps.accounts.identity import get_identity_provider
 from apps.accounts.otp import generate_code, get_otp_provider, hash_code
@@ -91,7 +91,7 @@ class OTPRequestView(APIView):
 
         if purpose == 'LOGIN' and not User.objects.filter(phone=phone).exists():
             return Response({'detail': 'No account found for this number.'}, status=status.HTTP_404_NOT_FOUND)
-        if purpose == 'REGISTER' and User.objects.filter(phone=phone).exists():
+        if purpose in ('REGISTER', 'REGISTER_FAMILY') and User.objects.filter(phone=phone).exists():
             return Response({'detail': 'An account already exists for this number.'}, status=status.HTTP_409_CONFLICT)
 
         code = generate_code()
@@ -138,6 +138,17 @@ class OTPVerifyView(APIView):
         unclaimed_profiles = PatientProfile.objects.filter(
             phone__iexact=d['phone'], is_unclaimed=True
         )
+        family_patient = None
+        if d['purpose'] == 'REGISTER_FAMILY':
+            lifelink_id = (d.get('lifelink_patient_id') or '').strip()
+            if not lifelink_id:
+                return Response({'lifelink_patient_id': 'Enter the patient LifeLink ID.'}, status=status.HTTP_400_BAD_REQUEST)
+            family_patient = PatientProfile.objects.filter(
+                lifelink_patient_id__iexact=lifelink_id, user__isnull=False, is_unclaimed=False
+            ).first()
+            if not family_patient:
+                return Response({'detail': 'No claimed patient account was found for that LifeLink ID.'}, status=status.HTTP_404_NOT_FOUND)
+
         if d['purpose'] == 'REGISTER' and unclaimed_profiles.count() > 1:
             return Response(
                 {'detail': 'Multiple unclaimed patient records match this phone number. Please contact the hospital.'},
@@ -147,33 +158,46 @@ class OTPVerifyView(APIView):
         otp.verified = True
         otp.save(update_fields=['verified'])
 
-        if d['purpose'] == 'REGISTER':
+        if d['purpose'] in ('REGISTER', 'REGISTER_FAMILY'):
+            is_family_registration = d['purpose'] == 'REGISTER_FAMILY'
+            username_prefix = 'family_' if is_family_registration else 'patient_'
             user = User.objects.create(
-                username=f"patient_{d['phone']}", phone=d['phone'],
+                username=username_prefix + d['phone'], phone=d['phone'],
                 first_name=d.get('full_name', ''), email=d.get('email', ''),
-                role=Role.PATIENT,
+                role=Role.FAMILY if is_family_registration else Role.PATIENT,
             )
             user.set_unusable_password()
             user.save()
 
-            existing_profile = unclaimed_profiles.first()
-            if existing_profile:
-                existing_profile.user = user
-                existing_profile.is_unclaimed = False
-                existing_profile.save(update_fields=['user', 'is_unclaimed', 'updated_at'])
-            else:
-                # Self-registration creates a profile unless a hospital has
-                # already registered this phone as an unclaimed patient.
-                PatientProfile.objects.create(
-                    lifelink_patient_id=generate_lifelink_patient_id(),
-                    user=user,
-                    full_name=d.get('full_name', ''),
-                    phone=d['phone'],
-                    address=d.get('address', ''),
-                    date_of_birth=d.get('date_of_birth'),
-                    gender=d.get('gender', 'U'),
-                    is_unclaimed=False,
+            if is_family_registration:
+                # Family sign-up never grants access immediately. The patient
+                # must explicitly activate the pending relationship first.
+                FamilyRelationship.objects.create(
+                    patient=family_patient,
+                    family_user=user,
+                    relationship_type=d.get('relationship_type', 'Representative'),
+                    access_level=AccessLevel.FULL_REPRESENTATIVE,
+                    is_active=False,
                 )
+            else:
+                existing_profile = unclaimed_profiles.first()
+                if existing_profile:
+                    existing_profile.user = user
+                    existing_profile.is_unclaimed = False
+                    existing_profile.save(update_fields=['user', 'is_unclaimed', 'updated_at'])
+                else:
+                    # Self-registration creates a profile unless a hospital has
+                    # already registered this phone as an unclaimed patient.
+                    PatientProfile.objects.create(
+                        lifelink_patient_id=generate_lifelink_patient_id(),
+                        user=user,
+                        full_name=d.get('full_name', ''),
+                        phone=d['phone'],
+                        address=d.get('address', ''),
+                        date_of_birth=d.get('date_of_birth'),
+                        gender=d.get('gender', 'U'),
+                        is_unclaimed=False,
+                    )
             log_action('PATIENT_ACCOUNT_CREATED', actor=user)
         else:
             user = User.objects.get(phone=d['phone'])
