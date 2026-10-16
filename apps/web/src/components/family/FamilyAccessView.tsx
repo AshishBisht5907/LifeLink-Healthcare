@@ -62,7 +62,7 @@ export function FamilyAccessView() {
       <div className="flex items-start gap-3 rounded-xl border border-info/25 bg-info-tint px-4 py-3 text-sm">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
         <div className="space-y-1">
-          <p className="font-medium">A family member can open the record only when all three are true:</p>
+          <p className="font-medium">A family member can open the record when both conditions are met:</p>
           <p className="text-foreground/80">the patient has activated the link and the access level is Full representative. Procedure consent is separate and does not control family profile access.</p>
         </div>
       </div>
