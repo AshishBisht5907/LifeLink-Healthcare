@@ -71,7 +71,7 @@ try {
   const home = await page.goto(baseURL);
   assert.equal(home?.status(), 200, 'home page should load');
   await page.getByRole('heading', { name: /better connection/i }).waitFor();
-  await page.getByRole('link', { name: /patient \/ family/i }).click();
+  await page.getByRole('link', { name: /patient & family/i }).click();
   await page.getByRole('heading', { name: 'Patient & Family Access' }).waitFor();
   await page.getByRole('link', { name: /create a family account/i }).click();
   await page.getByRole('heading', { name: 'Join LifeLink as family' }).waitFor();
