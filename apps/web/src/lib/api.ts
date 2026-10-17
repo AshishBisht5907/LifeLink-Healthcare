@@ -89,6 +89,11 @@ async function authRequest<T>(path: string, body?: unknown): Promise<T> {
 
 export const authApi = {
   me: () => get<Me>('auth/me/'),
+  refreshSession: async () => {
+    const resp = await fetch('/api/auth/refresh', { method: 'POST', cache: 'no-store' });
+    if (!resp.ok) throw new ApiError(resp.status, 'Could not restore your session.');
+    return resp.json() as Promise<{ restored: boolean }>;
+  },
   staffLogin: (username: string, password: string, mfa_code?: string) =>
     authRequest<{ user: Me }>('staff-login', { username, password, mfa_code }),
   otpRequest: (
