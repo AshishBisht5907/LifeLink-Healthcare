@@ -5,7 +5,10 @@ const PUBLIC_PATHS = ['/login', '/'];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSession = request.cookies.has('ll_access');
+  // An access JWT can expire while its cookie remains, or the access cookie
+  // can expire before the refresh cookie. Let AuthProvider call /me; the API
+  // proxy will refresh from ll_refresh and restore the session when possible.
+  const hasSession = request.cookies.has('ll_access') || request.cookies.has('ll_refresh');
 
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   if (isProtected && !hasSession) {
