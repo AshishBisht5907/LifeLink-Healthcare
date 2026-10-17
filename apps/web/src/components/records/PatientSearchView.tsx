@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { EyeOff, Search, UserPlus } from 'lucide-react';
 import { accessApi, patientsApi, ApiError } from '@/lib/api';
@@ -44,6 +44,21 @@ export function PatientSearchView({ basePath, allowOpen = true, allowRegister = 
     if (!id && !phone) { setError('Enter a LifeLink Patient ID or a phone number.'); return; }
     run(id ? { lifelink_patient_id: id } : { phone });
   }
+
+  // Management's search and grant status stay in sync while the patient approves
+  // a request in another session. Refreshing the list never bypasses backend access checks.
+  useEffect(() => {
+    if (!isManagement) return;
+    const timer = window.setInterval(() => {
+      grants.refetch();
+      if (last) {
+        patientsApi.search(last).then(setResults).catch(() => {
+          // Keep the last known row visible during transient network failures.
+        });
+      }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [isManagement, grants.refetch, last]);
 
   // After a request/emergency grant, re-run the same search and reload the grants so every status is the server's.
   function changed() { grants.refetch(); if (last) run(last); }

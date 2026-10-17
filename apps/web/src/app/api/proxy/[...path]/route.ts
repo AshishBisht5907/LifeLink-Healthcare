@@ -49,7 +49,8 @@ async function forward(req: NextRequest, pathParts: string[]): Promise<NextRespo
     const body = await getBody();
     let resp = await fetch(url, { method: req.method, headers: buildHeaders(accessToken), body, cache: 'no-store' });
 
-    if (resp.status === 401 && accessToken) {
+    // Refresh even if the access cookie itself expired and is now missing.
+    if (resp.status === 401) {
       const newToken = await tryRefresh();
       if (newToken) {
         // Only replay buffered text/JSON bodies. Multipart forms cannot safely be reused.
