@@ -21,7 +21,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const me = await authApi.me();
+      // First use the current access token. If it has expired, explicitly
+      // refresh from the httpOnly refresh cookie, then retry /me once.
+      let me: Me;
+      try {
+        me = await authApi.me();
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 401) throw error;
+        await authApi.refreshSession();
+        me = await authApi.me();
+      }
       setUser(me);
     } catch {
       setUser(null);

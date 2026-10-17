@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, PlusCircle, Send } from 'lucide-react';
@@ -31,6 +31,18 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
   const requests = useApi(() => requestsApi.list({ patient: patientId }), [patientId]);
   const referrals = useApi(() => referralsApi.list(), [patientId]);
   const grants = useApi(() => accessApi.list(), [patientId], accessGate);
+
+  // If Management opened the detail route just before the patient approved,
+  // retry the guarded profile request. The API remains the authority: a 403
+  // shows no patient data, and polling stops as soon as access is granted.
+  useEffect(() => {
+    if (!accessGate || patient.error?.status !== 403) return;
+    const timer = window.setInterval(() => {
+      grants.refetch();
+      patient.refetch();
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [accessGate, patient.error?.status, patient.refetch, grants.refetch]);
   // Documents are only requested once the patient record itself was allowed; the backend re-checks access either way.
   const documents = useApi(() => documentsApi.list(patientId), [patientId], !!patient.data);
   const [showNewAdmission, setShowNewAdmission] = useState(false);
