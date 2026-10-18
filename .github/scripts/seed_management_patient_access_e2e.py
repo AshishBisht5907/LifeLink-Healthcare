@@ -92,6 +92,6 @@ print('Seeded E2E accounts and patient LL-P-E2E-1001')
 github_env = os.environ.get('GITHUB_ENV')
 if github_env:
     with open(github_env, 'a', encoding='utf-8') as env_file:
-        env_file.write(f'E2E_PATIENT_PROFILE_ID={patient.id}\\n')
-        env_file.write(f'E2E_PATIENT_PHONE={patient_user.phone}\\n')
-        env_file.write(f'E2E_PATIENT_LIFELINK_ID={patient.lifelink_patient_id}\\n')
+        env_file.write(f'E2E_PATIENT_PROFILE_ID={patient.id}\n')
+        env_file.write(f'E2E_PATIENT_PHONE={patient_user.phone}\n')
+        env_file.write(f'E2E_PATIENT_LIFELINK_ID={patient.lifelink_patient_id}\n')
