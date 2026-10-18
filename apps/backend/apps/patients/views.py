@@ -79,15 +79,16 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
         service_requests = ServiceRequest.objects.filter(patient=patient).select_related(
             'target_department'
         ).prefetch_related('transitions').order_by('-created_at')
-        request_rows = ServiceRequestSerializer(service_requests, many=True).data
+        request_objects = list(service_requests)
+        request_rows = ServiceRequestSerializer(request_objects, many=True).data
         # Keep only the status timeline and scheduling/routing fields needed by
         # the care-journey UI. Strip free text, document links, and staff identity.
-        for row in request_rows:
+        for request_obj, row in zip(request_objects, request_rows):
             row['reason'] = ''
             row['postpone_or_reject_reason'] = ''
             row['result_document'] = None
             row['assigned_to'] = None
-            row['assigned'] = bool(service_requests.get(id=row['id']).assigned_to_id)
+            row['assigned'] = bool(request_obj.assigned_to_id)
             row['transitions'] = [
                 {
                     'id': str(t.id),
@@ -98,7 +99,7 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
                     'note': '',
                     'created_at': t.created_at,
                 }
-                for t in service_requests.get(id=row['id']).transitions.all()
+                for t in request_obj.transitions.all()
             ]
 
         referrals = Referral.objects.filter(patient=patient).select_related(
