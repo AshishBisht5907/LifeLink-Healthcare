@@ -74,7 +74,7 @@ def request_emergency_access(user, patient, reason):
     log_action('EMERGENCY_ACCESS_GRANTED', actor=user, hospital_id=staff.hospital_id,
                patient_id=patient.id, target_description=f'grant={grant.id}',
                context={'reason': reason, 'expires_at': grant.expires_at.isoformat(),
-                        'scope': 'PATIENT_PROFILE'})
+                        'scope': 'PATIENT_PROFILE_AND_CARE_STATUS_SUMMARY'})
     if patient.user_id:
         _create_once(
             recipient=patient.user, notification_type=NotificationType.EMERGENCY_ACCESS,
