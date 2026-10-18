@@ -87,6 +87,9 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
             row['reason'] = ''
             row['postpone_or_reject_reason'] = ''
             row['result_document'] = None
+            row['linked_consent'] = None
+            row['created_by'] = ''
+            row['completed_by'] = None
             row['assigned_to'] = None
             row['assigned'] = bool(request_obj.assigned_to_id)
             row['transitions'] = [
@@ -124,7 +127,7 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
                     'referral': str(referral.id),
                     'ambulance_arranged': transfer.ambulance_arranged,
                     'checklist': {},
-                    'new_admission': str(transfer.new_admission_id) if transfer.new_admission_id else None,
+                    'new_admission': 'linked' if transfer.new_admission_id else None,
                     'completed_at': transfer.completed_at,
                     'created_at': transfer.created_at,
                 }
