@@ -178,6 +178,10 @@ export const patientsApi = {
 // Admissions
 // ---------------------------------------------------------------------------
 
+export const patientsAdmissionCandidateApi = {
+  list: () => get<import('./types').AdmissionCandidate[]>('patients/admission-candidates/'),
+};
+
 export const admissionsApi = {
   list: () => get<Paginated<AdmissionListItem>>('admissions/'),
   get: (id: string) => get<AdmissionDetail>(`admissions/${id}/`),
