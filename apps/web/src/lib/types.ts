@@ -153,8 +153,8 @@ export interface FamilyRelationship {
 // Admissions
 // ---------------------------------------------------------------------------
 
-/** PatientProfile UUID used by POST /api/admissions/. */
 export interface AdmissionCandidate {
+  /** PatientProfile UUID used by POST /admissions/. */
   id: string;
   lifelink_patient_id: string;
   full_name: string;
