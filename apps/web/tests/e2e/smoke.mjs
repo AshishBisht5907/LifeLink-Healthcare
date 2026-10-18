@@ -196,7 +196,7 @@ try {
   await patientPage.goto(`${baseURL}/portal/access-requests`);
   await patientPage.getByRole('button', { name: 'Approve', exact: true }).click();
   await patientPage.getByRole('button', { name: 'Approve access' }).click();
-  await patientPage.getByText('Access approved').waitFor();
+  await patientPage.getByText('Access approved', { exact: true }).first().waitFor();
 
   await managementPage.getByRole('button', { name: 'Search' }).click();
   await managementPage.getByRole('link', { name: 'Open record' }).waitFor({ timeout: 15000 });
