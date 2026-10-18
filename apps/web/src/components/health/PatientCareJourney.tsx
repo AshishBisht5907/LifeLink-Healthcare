@@ -19,32 +19,37 @@ interface Props {
   loading?: boolean;
   error?: { status: number } | null;
   onRetry?: () => void;
+  errorDescription?: string;
+  transfers?: Record<string, Transfer>;
+  /** Management summary endpoint already includes a scrubbed transfer snapshot. */
+  skipTransferFetch?: boolean;
 }
 
 /**
  * The overall care journey: stays, requests and referrals for ONE patient.
  * Individual messages live in Notifications, not here.
  */
-export function PatientCareJourney({ admissions, requests, referrals, variant = 'patient', loading, error, onRetry }: Props) {
+export function PatientCareJourney({ admissions, requests, referrals, variant = 'patient', loading, error, onRetry, errorDescription, transfers: transferSnapshot, skipTransferFetch = false }: Props) {
   // Transfer details exist only for accepted referrals. A 404 just means "no transfer yet".
   const eligible = referrals.filter((r) => r.status === 'ACCEPTED' || r.status === 'CONDITIONAL');
   const transfers = useApi(async () => {
     const out: Record<string, Transfer> = {};
     await Promise.all(eligible.map(async (r) => { try { out[r.id] = await referralsApi.getTransfer(r.id); } catch { /* not created yet */ } }));
     return out;
-  }, [eligible.map((r) => r.id).join(',')], eligible.length > 0);
+  }, [eligible.map((r) => r.id).join(',')], eligible.length > 0 && !skipTransferFetch);
+  const transferData = transferSnapshot ?? transfers.data ?? {};
 
   const title = variant === 'patient' ? 'Your care journey' : 'Patient care journey';
   const subtitle = 'Built only from recorded admissions, requests and referrals';
 
-  if (loading || (eligible.length > 0 && transfers.loading)) {
+  if (loading || (!skipTransferFetch && eligible.length > 0 && transfers.loading)) {
     return <Card><CardHeader title={title} subtitle={subtitle} /><LoadingBlock rows={4} /></Card>;
   }
   if (error) {
-    return <Card><CardHeader title={title} subtitle={subtitle} /><ErrorState status={error.status} description={friendlyError(error.status)} onRetry={onRetry} /></Card>;
+    return <Card><CardHeader title={title} subtitle={subtitle} /><ErrorState status={error.status} description={errorDescription ?? friendlyError(error.status)} onRetry={onRetry} /></Card>;
   }
 
-  const journey = buildJourney({ admissions, requests, referrals, transfers: transfers.data ?? {}, variant });
+  const journey = buildJourney({ admissions, requests, referrals, transfers: transferData, variant });
 
   if (journey.isEmpty) {
     return (
