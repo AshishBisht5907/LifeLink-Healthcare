@@ -51,8 +51,11 @@ try {
   await patientPage.goto(`${baseURL}/login/patient`);
   await patientPage.getByLabel('Mobile number').fill(patientPhone);
   await patientPage.getByRole('button', { name: 'Send code' }).click();
-  await patientPage.getByText(/Demo mode — your code is/).waitFor();
-  await patientPage.getByLabel('6-digit code').fill('123456');
+  const demoCodeNotice = patientPage.getByText(/Demo mode — your code is/);
+  await demoCodeNotice.waitFor();
+  const demoCode = (await demoCodeNotice.innerText()).match(/\\b(\\d{6})\\b/)?.[1];
+  assert.ok(demoCode, 'mock OTP should be displayed by the real Django dev provider');
+  await patientPage.getByLabel('6-digit code').fill(demoCode);
   await patientPage.getByRole('button', { name: 'Verify & continue' }).click();
   await patientPage.waitForURL('**/portal', { timeout: 15000 });
   await patientPage.goto(`${baseURL}/portal/access-requests`);
