@@ -76,10 +76,27 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
                        patient_id=patient.id)
             raise PermissionDenied('You are not authorised to view this patient care summary.')
 
-        admissions = Admission.objects.filter(patient=patient).select_related('hospital').order_by('-admitted_at')
+        staff = get_staff_profile(request.user)
+        has_patient_grant = user_has_active_grant(request.user, patient, staff.hospital_id)
+
+        # A patient-approved grant is user-bound and permits a cross-hospital
+        # patient status summary. Without one, keep the summary at the user's
+        # own hospital and its participating referrals, matching existing
+        # hospital-isolation boundaries.
+        admissions = Admission.objects.filter(patient=patient)
+        service_requests = ServiceRequest.objects.filter(patient=patient)
+        referrals = Referral.objects.filter(patient=patient)
+        if not has_patient_grant:
+            admissions = admissions.filter(hospital_id=staff.hospital_id)
+            service_requests = service_requests.filter(admission__hospital_id=staff.hospital_id)
+            referrals = referrals.filter(
+                Q(from_hospital_id=staff.hospital_id) | Q(to_hospital_id=staff.hospital_id)
+            )
+
+        admissions = admissions.select_related('hospital').order_by('-admitted_at')
         admission_rows = AdmissionListSerializer(admissions, many=True).data
 
-        service_requests = ServiceRequest.objects.filter(patient=patient).select_related(
+        service_requests = service_requests.select_related(
             'target_department'
         ).prefetch_related('transitions').order_by('-created_at')
         request_objects = list(service_requests)
