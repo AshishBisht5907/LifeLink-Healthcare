@@ -89,7 +89,12 @@ try {
   await staffLogin(doctorPage, 'doctor_e2e', 'staff');
   await doctorPage.waitForURL('**/staff', { timeout: 15000 });
   await doctorPage.goto(`${baseURL}/staff/patients/${patientId}`);
-  await doctorPage.getByRole('heading', { name: 'Access denied' }).waitFor();
+  try {
+    await doctorPage.getByRole('heading', { name: 'Access denied' }).waitFor({ timeout: 10000 });
+  } catch (error) {
+    console.error('Unauthorized staff page text:', await doctorPage.locator('body').innerText());
+    throw error;
+  }
   assert.equal(await doctorPage.getByText('Verified E2E asthma history').count(), 0,
     'unauthorized staff must not see patient clinical history');
 
