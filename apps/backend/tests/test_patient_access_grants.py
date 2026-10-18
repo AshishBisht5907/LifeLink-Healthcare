@@ -312,3 +312,28 @@ def test_management_approved_grant_loads_real_profile_and_safe_care_summary(
     assert patient_client.post(f'/api/patients/access-requests/{grant_id}/revoke/').status_code == 200
     assert management_client.get(f'/api/patients/{self_registered.id}/').status_code == 403
     assert management_client.get(f'/api/patients/{self_registered.id}/care-summary/').status_code == 403
+
+
+def test_management_without_patient_grant_care_summary_stays_in_own_hospital(
+    management_a, management_b, patient, admission, hospital_b, dept_general_b
+):
+    """Own-hospital scope must not silently reveal another hospital's case summary."""
+    from tests.conftest import auth_client
+
+    outside_admission = Admission.objects.create(
+        patient=patient, hospital=hospital_b,
+        admission_number=Admission.generate_admission_number(hospital_b),
+        reason='Other hospital case', created_by=management_b,
+    )
+    outside_request = ServiceRequest.objects.create(
+        patient=patient, admission=outside_admission, request_type=RequestTypeCode.MRI,
+        created_by=management_b, target_department=dept_general_b,
+        status=RequestStatus.REQUESTED, reason='Other hospital task',
+    )
+
+    response = auth_client(management_a).get(f'/api/patients/{patient.id}/care-summary/')
+    assert response.status_code == 200
+    summary = response.json()
+    assert [item['id'] for item in summary['admissions']] == [str(admission.id)]
+    assert all(item['admission'] != str(outside_admission.id) for item in summary['requests'])
+    assert str(outside_request.id) not in json.dumps(summary)
