@@ -146,7 +146,7 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
         admissions={journeyAdmissions}
         requests={journeyRequests}
         referrals={journeyReferrals}
-        variant={accessGate ? 'patient' : 'staff'}
+        variant="staff"
         loading={journeyLoading}
         error={journeyError}
         errorDescription={journeyErrorDescription}
