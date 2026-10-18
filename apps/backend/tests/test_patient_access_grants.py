@@ -89,6 +89,7 @@ def test_expired_grant_stops_working(management_a, self_registered):
     auth_client(self_registered.user).post(f'/api/patients/access-requests/{gid}/approve/')
     PatientAccessGrant.objects.filter(pk=gid).update(expires_at=timezone.now() - datetime.timedelta(minutes=1))
     assert m.get(f'/api/patients/{self_registered.id}/').status_code == 403
+    assert m.get(f'/api/patients/{self_registered.id}/care-summary/').status_code == 403
     assert m.get('/api/patients/access-requests/').json()[0]['status'] == 'EXPIRED'
 
 
@@ -99,6 +100,7 @@ def test_patient_can_revoke(management_a, self_registered):
     p.post(f'/api/patients/access-requests/{gid}/approve/')
     assert p.post(f'/api/patients/access-requests/{gid}/revoke/').json()['status'] == 'REVOKED'
     assert m.get(f'/api/patients/{self_registered.id}/').status_code == 403
+    assert m.get(f'/api/patients/{self_registered.id}/care-summary/').status_code == 403
 
 
 def test_cannot_approve_someone_elses_request(management_a, self_registered, patient_user):
