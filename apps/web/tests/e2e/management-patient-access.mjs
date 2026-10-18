@@ -90,7 +90,7 @@ try {
   await doctorPage.waitForURL('**/staff', { timeout: 15000 });
   await doctorPage.goto(`${baseURL}/staff/patients/${patientId}`);
   try {
-    await doctorPage.getByRole('heading', { name: 'Access denied' }).waitFor({ timeout: 10000 });
+    await doctorPage.getByText('Access denied', { exact: true }).waitFor({ timeout: 10000 });
   } catch (error) {
     console.error('Unauthorized staff page text:', await doctorPage.locator('body').innerText());
     throw error;
