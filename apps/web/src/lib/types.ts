@@ -225,6 +225,8 @@ export interface ServiceRequest {
   target_department: string | null;
   department_name: string | null;
   assigned_to: string | null;
+  /** Status-only care summary may disclose assignment presence, not staff identity. */
+  assigned?: boolean;
   priority: Priority;
   reason: string;
   status: RequestStatus;
