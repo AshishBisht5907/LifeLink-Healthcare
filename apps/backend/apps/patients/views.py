@@ -11,7 +11,10 @@ from apps.admissions.models import Admission
 from apps.admissions.serializers import AdmissionListSerializer
 from apps.audit.utils import log_action
 from apps.patients import access_grants
-from apps.patients.access import user_can_access_patient, user_can_manage_family_links, user_can_view_patient_updates
+from apps.patients.access import (
+    user_can_access_patient, user_can_manage_family_links, user_can_view_patient_updates,
+    user_has_active_grant,
+)
 from apps.patients.models import (
     AccessGrantStatus, Allergy, DataSource, EmergencyContact, FamilyRelationship,
     MedicalHistoryEntry, Medication, PatientAccessGrant, PatientProfile, VerificationStatus,
@@ -105,7 +108,7 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
                 for t in request_obj.transitions.all()
             ]
 
-        referrals = Referral.objects.filter(patient=patient).select_related(
+        referrals = referrals.select_related(
             'to_hospital', 'from_hospital'
         ).prefetch_related('transfer').order_by('-created_at')
         referral_rows = ReferralSerializer(referrals, many=True).data
@@ -132,9 +135,10 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
                     'created_at': transfer.created_at,
                 }
 
-        staff = get_staff_profile(request.user)
         log_action('PATIENT_CARE_SUMMARY_VIEWED', actor=request.user, hospital_id=staff.hospital_id,
-                   patient_id=patient.id, target_description='read-only care status summary')
+                   patient_id=patient.id,
+                   target_description='patient-approved cross-hospital summary' if has_patient_grant
+                   else 'own-hospital care status summary')
         return Response({
             'admissions': admission_rows,
             'requests': request_rows,
