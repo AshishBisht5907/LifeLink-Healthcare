@@ -157,3 +157,8 @@ jobs:
         env:
           BASE_URL: http://127.0.0.1:3000
           E2E_STAFF_PASSWORD: "e2e-ci-only-password"
+      - name: Print Django/frontend logs on E2E failure
+        if: failure()
+        run: |
+          tail -n 160 /tmp/lifelink-django-e2e.log || true
+          tail -n 160 /tmp/lifelink-next-e2e.log || true
