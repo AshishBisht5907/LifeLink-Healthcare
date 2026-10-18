@@ -53,7 +53,7 @@ try {
   await patientPage.getByRole('button', { name: 'Send code' }).click();
   const demoCodeNotice = patientPage.getByText(/Demo mode — your code is/);
   await demoCodeNotice.waitFor();
-  const demoCode = (await demoCodeNotice.innerText()).match(/\\b(\\d{6})\\b/)?.[1];
+  const demoCode = (await demoCodeNotice.innerText()).match(/\b(\d{6})\b/)?.[1];
   assert.ok(demoCode, 'mock OTP should be displayed by the real Django dev provider');
   await patientPage.getByLabel('6-digit code').fill(demoCode);
   await patientPage.getByRole('button', { name: 'Verify & continue' }).click();
