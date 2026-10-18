@@ -1,4 +1,5 @@
 """Management -> patient access: normal (patient approves) and emergency.
+import json
 
 Root cause of the old 'Access denied' on the management patient page:
 search returned ANY patient, but opening one needed a hospital link
