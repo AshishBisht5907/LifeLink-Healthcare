@@ -1,5 +1,4 @@
 """Management -> patient access: normal (patient approves) and emergency.
-import json
 
 Root cause of the old 'Access denied' on the management patient page:
 search returned ANY patient, but opening one needed a hospital link
@@ -7,6 +6,7 @@ search returned ANY patient, but opening one needed a hospital link
 so search worked and the profile 403'd. These tests pin the fix without
 loosening the hospital-isolation rule.
 """
+import json
 import datetime
 
 import pytest
