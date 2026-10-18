@@ -166,6 +166,36 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
                     patient_id=patient.id, target_description=patient.lifelink_patient_id)
         return Response(PatientProfileDetailSerializer(patient).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsStaffOrManagementOrAdmin], url_path='admission-candidates')
+    def admission_candidates(self, request):
+        """Return only patients belonging to this staff member's hospital
+        who do not currently have an active admission there. Registration
+        creates a PatientProfile; admission remains a separate explicit step.
+        """
+        staff = get_staff_profile(request.user)
+        if not staff:
+            raise PermissionDenied('Only hospital staff can view admission candidates.')
+
+        candidates = (
+            PatientProfile.objects.filter(
+                Q(created_by_hospital_id=staff.hospital_id)
+                | Q(created_by_staff__hospital_id=staff.hospital_id)
+                | Q(admissions__hospital_id=staff.hospital_id)
+            )
+            .exclude(admissions__hospital_id=staff.hospital_id, admissions__status='ACTIVE')
+            .distinct()
+            .order_by('full_name', 'lifelink_patient_id')
+        )
+        return Response([
+            {
+                'id': str(patient.id),
+                'lifelink_patient_id': patient.lifelink_patient_id,
+                'full_name': patient.full_name,
+            }
+            for patient in candidates
+            if user_can_access_patient(request.user, patient)
+        ])
+
     @action(detail=False, methods=['post'])
     def claim(self, request):
         """Section 14 — patient/family links their verified account to an
