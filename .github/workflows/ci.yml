@@ -157,6 +157,3 @@ jobs:
         env:
           BASE_URL: http://127.0.0.1:3000
           E2E_STAFF_PASSWORD: "e2e-ci-only-password"
-          E2E_PATIENT_PROFILE_ID: ${{ env.E2E_PATIENT_PROFILE_ID }}
-          E2E_PATIENT_PHONE: ${{ env.E2E_PATIENT_PHONE }}
-          E2E_PATIENT_LIFELINK_ID: ${{ env.E2E_PATIENT_LIFELINK_ID }}
