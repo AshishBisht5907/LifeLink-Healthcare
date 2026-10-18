@@ -103,6 +103,7 @@ export function PatientCareJourney({ admissions, requests, referrals, variant = 
                     <div className="min-w-0">
                       <h3 className="flex items-center gap-2 text-sm font-semibold"><ClipboardList className="h-4 w-4 shrink-0 text-brand" />{requestLabel(r.requestType)}</h3>
                       <p className="mt-0.5 text-xs text-muted">{r.department ?? 'Not routed to a department yet'}</p>
+                      {r.dueAt && <p className="mt-0.5 text-xs text-muted">Due {formatDate(r.dueAt)}</p>}
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {r.priority !== 'NORMAL' && <StatusBadge kind="priority" value={r.priority} />}
