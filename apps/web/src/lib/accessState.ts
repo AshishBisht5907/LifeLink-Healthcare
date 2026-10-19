@@ -115,3 +115,14 @@ export function groupPatientGrants(grants: PatientAccessGrant[], now = Date.now(
   active.sort((a, b) => new Date(a.expires_at!).getTime() - new Date(b.expires_at!).getTime());
   return { pending, active, history };
 }
+
+/**
+ * Text for a failed care-summary call. A 403 means access ended or changed
+ * after the record loaded, so it must NEVER say the user is "authorized".
+ */
+export function careSummaryErrorMessage(status: number, patientId: string): string {
+  if (status === 403) {
+    return 'Your access to this patient has ended or changed, so the care summary cannot be shown. This page re-checks your access every few seconds.';
+  }
+  return `GET /api/patients/${patientId}/care-summary/ failed with HTTP ${status}. The patient record loaded, but its care summary could not be loaded.`;
+}

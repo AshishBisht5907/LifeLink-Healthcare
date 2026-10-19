@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { describeAccess, activeGrant } from './accessState.ts';
+import { describeAccess, activeGrant, careSummaryErrorMessage } from './accessState.ts';
 
 const NOW = new Date('2026-09-30T12:00:00Z').getTime();
 const grant = (o = {}) => ({ id: 'g', patient_id: 'p1', grant_type: 'NORMAL', status: 'PENDING', created_at: '2026-09-30T10:00:00Z', expires_at: null, ...o });
@@ -74,4 +74,16 @@ test('emergency access is active but never "pending"', () => {
 test('empty in, empty out', () => {
   const g = groupPatientGrants([], NOW);
   assert.deepEqual([g.pending, g.active, g.history], [[], [], []]);
+});
+
+test('care-summary 403 says access ended/changed and never claims the user is authorized', () => {
+  const m = careSummaryErrorMessage(403, 'p1');
+  assert.match(m, /ended or changed/);
+  assert.doesNotMatch(m, /authori[sz]ed/i);
+});
+test('other care-summary failures name the status and do not claim authorization', () => {
+  const m = careSummaryErrorMessage(500, 'p1');
+  assert.match(m, /HTTP 500/);
+  assert.match(m, /patients\/p1\/care-summary/);
+  assert.doesNotMatch(m, /authori[sz]ed/i);
 });
