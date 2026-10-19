@@ -1,5 +1,5 @@
 import type {
-import type { AdmissionCandidate } from './types';
+  AdmissionCandidate,
   AdmissionDetail, AdmissionListItem, AIInsight, Allergy, AuditLogEntry, ConsentRequest,
   Department, Document as LLDocument, EmergencyContact, FamilyCommunicationLog, FamilyRelationship,
   Hospital, HospitalCapacity, LiveStatusItem, Me, MedicalHistoryEntry, Medication, Notification,
