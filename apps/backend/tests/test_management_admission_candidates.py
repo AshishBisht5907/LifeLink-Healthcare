@@ -115,7 +115,7 @@ def test_management_without_staff_hospital_profile_gets_explanatory_403(
     response = api_client.get('/api/patients/admission-candidates/')
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
-    assert 'active hospital staff profile' in response.data['detail']
+    assert 'active hospital staff profile' in str(response.data['detail'])
 
 
 @pytest.mark.django_db
