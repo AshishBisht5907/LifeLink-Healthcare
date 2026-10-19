@@ -45,7 +45,7 @@ export default function ManagementAdmissionsPage() {
       <Card>
         <CardHeader title="Start an admission" subtitle="Choose a registered patient from your hospital. Registration does not admit the patient." />
         {candidates.loading ? <LoadingBlock rows={2} /> : candidates.error ? (
-          <div className="p-5"><ErrorState status={candidates.error.status} onRetry={candidates.refetch} /></div>
+          <div className="p-5"><ErrorState status={candidates.error.status} description={candidates.error.message} onRetry={candidates.refetch} /></div>
         ) : (
           <form onSubmit={createAdmission} className="space-y-3 p-5">
             <Field label="Patient" required>
