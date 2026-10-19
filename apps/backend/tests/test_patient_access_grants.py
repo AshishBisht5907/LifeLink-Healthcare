@@ -6,6 +6,7 @@ search returned ANY patient, but opening one needed a hospital link
 so search worked and the profile 403'd. These tests pin the fix without
 loosening the hospital-isolation rule.
 """
+import json
 import datetime
 
 import pytest
@@ -13,8 +14,15 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 from apps.audit.models import AuditLog
+from apps.admissions.models import Admission
 from apps.notifications.models import Notification
-from apps.patients.models import AccessGrantStatus, PatientAccessGrant, PatientProfile
+from apps.hospitals.models import Department
+from apps.patients.models import (
+    AccessGrantStatus, Allergy, DataSource, MedicalHistoryEntry, MedicalHistoryEventType,
+    Medication, MedicationStatus, PatientAccessGrant, PatientProfile, VerificationStatus,
+)
+from apps.referrals.models import Referral, ReferralStatus, Transfer
+from apps.workflow.models import RequestStatus, RequestTypeCode, ServiceRequest, StatusTransition
 from apps.patients.services import generate_lifelink_patient_id
 from tests.conftest import auth_client
 
@@ -82,6 +90,7 @@ def test_expired_grant_stops_working(management_a, self_registered):
     auth_client(self_registered.user).post(f'/api/patients/access-requests/{gid}/approve/')
     PatientAccessGrant.objects.filter(pk=gid).update(expires_at=timezone.now() - datetime.timedelta(minutes=1))
     assert m.get(f'/api/patients/{self_registered.id}/').status_code == 403
+    assert m.get(f'/api/patients/{self_registered.id}/care-summary/').status_code == 403
     assert m.get('/api/patients/access-requests/').json()[0]['status'] == 'EXPIRED'
 
 
@@ -92,6 +101,7 @@ def test_patient_can_revoke(management_a, self_registered):
     p.post(f'/api/patients/access-requests/{gid}/approve/')
     assert p.post(f'/api/patients/access-requests/{gid}/revoke/').json()['status'] == 'REVOKED'
     assert m.get(f'/api/patients/{self_registered.id}/').status_code == 403
+    assert m.get(f'/api/patients/{self_registered.id}/care-summary/').status_code == 403
 
 
 def test_cannot_approve_someone_elses_request(management_a, self_registered, patient_user):
@@ -176,3 +186,155 @@ def test_lists_are_private(management_a, management_b, self_registered, patient_
     assert auth_client(management_b).get('/api/patients/access-requests/').json() == []
     assert auth_client(patient_user).get('/api/patients/access-requests/').json() == []
     assert len(auth_client(self_registered.user).get('/api/patients/access-requests/').json()) == 1
+
+
+def test_management_approved_grant_loads_real_profile_and_safe_care_summary(
+    management_a, management_b, doctor_a, self_registered, hospital_a, hospital_b, dept_general_b
+):
+    """End-to-end API path: request -> patient approval -> profile + care summary.
+
+    The grant opens patient-level facts and read-only care status across hospitals.
+    Hospital-specific admission notes, referral narratives, staff identities, and
+    transfer checklist data must remain outside this summary.
+    """
+    from tests.conftest import auth_client
+
+    # Populate real patient-level clinical data and a separate hospital case file.
+    Allergy.objects.create(
+        patient=self_registered, substance='Penicillin', severity='MILD',
+        source=DataSource.SELF_REPORTED, verification_status=VerificationStatus.VERIFIED,
+    )
+    MedicalHistoryEntry.objects.create(
+        patient=self_registered, event_type=MedicalHistoryEventType.DIAGNOSIS,
+        description='Verified asthma history', event_date=datetime.date(2024, 2, 1),
+        source=DataSource.DOCTOR_ENTERED, verification_status=VerificationStatus.VERIFIED,
+        originating_hospital=hospital_b, created_by=management_b,
+    )
+    Medication.objects.create(
+        patient=self_registered, name='Salbutamol', dosage='2 puffs', frequency='As needed',
+        start_date=datetime.date(2024, 2, 1), status=MedicationStatus.ACTIVE,
+        source=DataSource.DOCTOR_ENTERED, prescribing_doctor=management_b,
+    )
+
+    admission = Admission.objects.create(
+        patient=self_registered, hospital=hospital_b,
+        admission_number=Admission.generate_admission_number(hospital_b),
+        reason='PRIVATE admission narrative', created_by=management_b,
+    )
+    service_request = ServiceRequest.objects.create(
+        patient=self_registered, admission=admission, request_type=RequestTypeCode.CT_SCAN,
+        created_by=management_b, target_department=dept_general_b, priority='HIGH',
+        reason='PRIVATE request narrative', status=RequestStatus.IN_PROGRESS,
+        due_at=timezone.now() + datetime.timedelta(days=1),
+    )
+    StatusTransition.objects.create(
+        service_request=service_request, from_status=RequestStatus.APPROVED,
+        to_status=RequestStatus.IN_PROGRESS, changed_by=management_b,
+        note='PRIVATE staff-only transition note',
+    )
+    referral = Referral.objects.create(
+        patient=self_registered, from_hospital=hospital_b, from_admission=admission,
+        to_hospital=hospital_a, required_department_type='GENERAL', priority='HIGH',
+        reason='PRIVATE referral narrative', current_condition_summary='PRIVATE clinical summary',
+        status=ReferralStatus.ACCEPTED, created_by=management_b, responded_by=management_a,
+        response_note='PRIVATE receiving-hospital note',
+    )
+    Transfer.objects.create(
+        referral=referral, ambulance_arranged=True,
+        checklist={'PRIVATE_CHECKLIST_ITEM': {'done': True}},
+    )
+
+    management_client = auth_client(management_a)
+    patient_client = auth_client(self_registered.user)
+
+    # Before approval, neither profile nor patient-specific care summary is exposed.
+    assert management_client.get(f'/api/patients/{self_registered.id}/').status_code == 403
+    assert management_client.get(f'/api/patients/{self_registered.id}/care-summary/').status_code == 403
+
+    request_response = management_client.post(
+        '/api/patients/access-requests/',
+        {'patient': str(self_registered.id), 'reason': 'Review current care plan'},
+    )
+    assert request_response.status_code == 201
+    grant_id = request_response.json()['id']
+    grant = PatientAccessGrant.objects.get(pk=grant_id)
+    assert grant.patient_id == self_registered.id
+    assert grant.requested_by_id == management_a.id
+    assert grant.hospital_id == hospital_a.id
+    assert grant.status == AccessGrantStatus.PENDING
+
+    approval = patient_client.post(f'/api/patients/access-requests/{grant_id}/approve/')
+    assert approval.status_code == 200
+    assert approval.json()['status'] == 'APPROVED'
+
+    # Profile GET returns the intended patient's real, nested clinical details.
+    profile = management_client.get(f'/api/patients/{self_registered.id}/')
+    assert profile.status_code == 200
+    profile_data = profile.json()
+    assert profile_data['id'] == str(self_registered.id)
+    assert profile_data['allergies'][0]['substance'] == 'Penicillin'
+    assert profile_data['history_entries'][0]['description'] == 'Verified asthma history'
+    assert profile_data['medications'][0]['name'] == 'Salbutamol'
+
+    # Care summary returns real status/scheduling metadata without hospital-only
+    # narratives, transition notes, staff IDs, or transfer checklist contents.
+    summary_response = management_client.get(f'/api/patients/{self_registered.id}/care-summary/')
+    assert summary_response.status_code == 200
+    summary = summary_response.json()
+    assert len(summary['admissions']) == 1
+    assert summary['admissions'][0]['hospital_name'] == hospital_b.name
+    assert summary['requests'][0]['request_type'] == RequestTypeCode.CT_SCAN
+    assert summary['requests'][0]['status'] == RequestStatus.IN_PROGRESS
+    assert summary['requests'][0]['due_at']
+    assert summary['requests'][0]['assigned'] is False
+    assert summary['requests'][0]['transitions'][0]['note'] == ''
+    assert summary['referrals'][0]['status'] == ReferralStatus.ACCEPTED
+    assert summary['referrals'][0]['to_hospital_name'] == hospital_a.name
+    assert summary['transfers'][str(referral.id)]['ambulance_arranged'] is True
+    assert summary['transfers'][str(referral.id)]['checklist'] == {}
+    encoded = json.dumps(summary)
+    for private_text in (
+        'PRIVATE admission narrative', 'PRIVATE request narrative',
+        'PRIVATE staff-only transition note', 'PRIVATE referral narrative',
+        'PRIVATE clinical summary', 'PRIVATE receiving-hospital note',
+        'PRIVATE_CHECKLIST_ITEM',
+    ):
+        assert private_text not in encoded
+
+    # A browser refresh repeats the same authorized API reads successfully.
+    assert management_client.get(f'/api/patients/{self_registered.id}/').status_code == 200
+    assert management_client.get(f'/api/patients/{self_registered.id}/care-summary/').status_code == 200
+
+    # A same-hospital doctor who did not receive this user-bound grant is still blocked.
+    assert auth_client(doctor_a).get(f'/api/patients/{self_registered.id}/').status_code == 403
+    assert auth_client(doctor_a).get(f'/api/patients/{self_registered.id}/care-summary/').status_code == 403
+
+    # Revocation immediately closes both protected endpoints.
+    assert patient_client.post(f'/api/patients/access-requests/{grant_id}/revoke/').status_code == 200
+    assert management_client.get(f'/api/patients/{self_registered.id}/').status_code == 403
+    assert management_client.get(f'/api/patients/{self_registered.id}/care-summary/').status_code == 403
+
+
+def test_management_without_patient_grant_care_summary_stays_in_own_hospital(
+    management_a, management_b, patient, admission, hospital_b, dept_general_b
+):
+    """Own-hospital scope must not silently reveal another hospital's case summary."""
+    from tests.conftest import auth_client
+
+    outside_admission = Admission.objects.create(
+        patient=patient, hospital=hospital_b,
+        admission_number=Admission.generate_admission_number(hospital_b),
+        reason='Other hospital case', created_by=management_b,
+    )
+    outside_request = ServiceRequest.objects.create(
+        patient=patient, admission=outside_admission, request_type=RequestTypeCode.MRI,
+        created_by=management_b, target_department=dept_general_b,
+        status=RequestStatus.REQUESTED, reason='Other hospital task',
+    )
+
+    response = auth_client(management_a).get(f'/api/patients/{patient.id}/care-summary/')
+    assert response.status_code == 200
+    summary = response.json()
+    assert [item['id'] for item in summary['admissions']] == [str(admission.id)]
+    assert all(item['admission'] != str(outside_admission.id) for item in summary['requests'])
+    assert str(outside_request.id) not in json.dumps(summary)

@@ -121,6 +121,14 @@ export interface PatientDetail {
   updated_at: string;
 }
 
+export interface PatientCareSummary {
+  admissions: AdmissionListItem[];
+  requests: ServiceRequest[];
+  referrals: Referral[];
+  /** Status-only transfer facts; hospital checklist and actor details are omitted. */
+  transfers: Record<string, Transfer>;
+}
+
 export interface LiveStatusItem {
   id: string;
   type: string;
@@ -217,6 +225,8 @@ export interface ServiceRequest {
   target_department: string | null;
   department_name: string | null;
   assigned_to: string | null;
+  /** Status-only care summary may disclose assignment presence, not staff identity. */
+  assigned?: boolean;
   priority: Priority;
   reason: string;
   status: RequestStatus;

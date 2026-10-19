@@ -37,6 +37,7 @@ export interface RequestTrack {
   status: string;
   assigned: boolean;
   updatedAt: string;
+  dueAt: string | null;
   steps: JourneyStep[];
 }
 
@@ -178,7 +179,7 @@ export function buildJourney(input: {
 
   const track = (r: ServiceRequest): RequestTrack => ({
     id: r.id, requestType: r.request_type, department: r.department_name, priority: r.priority,
-    status: r.status, assigned: Boolean(r.assigned_to), updatedAt: r.updated_at,
+    status: r.status, assigned: r.assigned ?? Boolean(r.assigned_to), updatedAt: r.updated_at, dueAt: r.due_at,
     steps: buildRequestSteps(r, variant),
   });
   const refTrack = (r: Referral): ReferralTrack => ({ id: r.id, target: r.to_hospital_name, steps: buildReferralSteps(r, transfers[r.id], variant) });

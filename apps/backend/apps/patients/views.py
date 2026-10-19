@@ -7,9 +7,14 @@ from rest_framework.permissions import SAFE_METHODS, BasePermission, IsAuthentic
 from rest_framework.response import Response
 
 from apps.accounts.permissions import IsStaffOrManagementOrAdmin, get_staff_profile
+from apps.admissions.models import Admission
+from apps.admissions.serializers import AdmissionListSerializer
 from apps.audit.utils import log_action
 from apps.patients import access_grants
-from apps.patients.access import user_can_access_patient, user_can_manage_family_links, user_can_view_patient_updates
+from apps.patients.access import (
+    user_can_access_patient, user_can_manage_family_links, user_can_view_patient_updates,
+    user_has_active_grant,
+)
 from apps.patients.models import (
     AccessGrantStatus, Allergy, DataSource, EmergencyContact, FamilyRelationship,
     MedicalHistoryEntry, Medication, PatientAccessGrant, PatientProfile, VerificationStatus,
@@ -21,7 +26,10 @@ from apps.patients.serializers import (
     PatientProfileSummarySerializer,
 )
 from apps.patients.services import generate_lifelink_patient_id
-from apps.workflow.models import RequestStatus
+from apps.referrals.models import Referral
+from apps.referrals.serializers import ReferralSerializer
+from apps.workflow.models import RequestStatus, ServiceRequest
+from apps.workflow.serializers import ServiceRequestSerializer
 
 
 class PatientProfileViewSet(viewsets.ModelViewSet):
@@ -52,6 +60,108 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('You are not authorised to view this patient.')
         log_action('PATIENT_VIEWED', actor=request.user, patient_id=patient.id)
         return Response(self.get_serializer(patient).data)
+
+    @action(detail=True, methods=['get'], url_path='care-summary')
+    def care_summary(self, request, pk=None):
+        """Read-only patient-level care summary for Management with current access.
+
+        A patient-approved grant unlocks the patient profile, but hospital case
+        files remain isolated in the admission endpoints. This summary exposes
+        only patient-care status metadata (no admission reasons/notes, request
+        free-text, referral clinical summaries, or transfer checklist contents).
+        """
+        patient = self.get_object()
+        if request.user.role != 'HOSPITAL_MANAGEMENT' or not user_can_access_patient(request.user, patient):
+            log_action('PATIENT_CARE_SUMMARY_DENIED', actor=request.user, result='DENIED',
+                       patient_id=patient.id)
+            raise PermissionDenied('You are not authorised to view this patient care summary.')
+
+        staff = get_staff_profile(request.user)
+        has_patient_grant = user_has_active_grant(request.user, patient, staff.hospital_id)
+
+        # A patient-approved grant is user-bound and permits a cross-hospital
+        # patient status summary. Without one, keep the summary at the user's
+        # own hospital and its participating referrals, matching existing
+        # hospital-isolation boundaries.
+        admissions = Admission.objects.filter(patient=patient)
+        service_requests = ServiceRequest.objects.filter(patient=patient)
+        referrals = Referral.objects.filter(patient=patient)
+        if not has_patient_grant:
+            admissions = admissions.filter(hospital_id=staff.hospital_id)
+            service_requests = service_requests.filter(admission__hospital_id=staff.hospital_id)
+            referrals = referrals.filter(
+                Q(from_hospital_id=staff.hospital_id) | Q(to_hospital_id=staff.hospital_id)
+            )
+
+        admissions = admissions.select_related('hospital').order_by('-admitted_at')
+        admission_rows = AdmissionListSerializer(admissions, many=True).data
+
+        service_requests = service_requests.select_related(
+            'target_department'
+        ).prefetch_related('transitions').order_by('-created_at')
+        request_objects = list(service_requests)
+        request_rows = ServiceRequestSerializer(request_objects, many=True).data
+        # Keep only the status timeline and scheduling/routing fields needed by
+        # the care-journey UI. Strip free text, document links, and staff identity.
+        for request_obj, row in zip(request_objects, request_rows):
+            row['reason'] = ''
+            row['postpone_or_reject_reason'] = ''
+            row['result_document'] = None
+            row['linked_consent'] = None
+            row['created_by'] = ''
+            row['completed_by'] = None
+            row['assigned_to'] = None
+            row['assigned'] = bool(request_obj.assigned_to_id)
+            row['transitions'] = [
+                {
+                    'id': str(t.id),
+                    'from_status': t.from_status,
+                    'to_status': t.to_status,
+                    'changed_by': None,
+                    'changed_by_username': None,
+                    'note': '',
+                    'created_at': t.created_at,
+                }
+                for t in request_obj.transitions.all()
+            ]
+
+        referrals = referrals.select_related(
+            'to_hospital', 'from_hospital'
+        ).prefetch_related('transfer').order_by('-created_at')
+        referral_rows = ReferralSerializer(referrals, many=True).data
+        transfers = {}
+        for referral, row in zip(referrals, referral_rows):
+            # The patient journey only needs the fact that a transfer is being
+            # arranged/completed. Checklist details and hospital-side actors
+            # remain restricted to the participating hospitals.
+            row['reason'] = ''
+            row['current_condition_summary'] = ''
+            row['ai_summary'] = None
+            row['created_by'] = ''
+            row['responded_by'] = None
+            row['response_note'] = ''
+            if hasattr(referral, 'transfer'):
+                transfer = referral.transfer
+                transfers[str(referral.id)] = {
+                    'id': str(transfer.id),
+                    'referral': str(referral.id),
+                    'ambulance_arranged': transfer.ambulance_arranged,
+                    'checklist': {},
+                    'new_admission': 'linked' if transfer.new_admission_id else None,
+                    'completed_at': transfer.completed_at,
+                    'created_at': transfer.created_at,
+                }
+
+        log_action('PATIENT_CARE_SUMMARY_VIEWED', actor=request.user, hospital_id=staff.hospital_id,
+                   patient_id=patient.id,
+                   target_description='patient-approved cross-hospital summary' if has_patient_grant
+                   else 'own-hospital care status summary')
+        return Response({
+            'admissions': admission_rows,
+            'requests': request_rows,
+            'referrals': referral_rows,
+            'transfers': transfers,
+        })
 
     def get_permissions(self):
         if self.action in ('update', 'partial_update', 'destroy'):

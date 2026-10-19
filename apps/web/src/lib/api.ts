@@ -3,7 +3,7 @@ import type {
   Department, Document as LLDocument, EmergencyContact, FamilyCommunicationLog, FamilyRelationship,
   Hospital, HospitalCapacity, LiveStatusItem, Me, MedicalHistoryEntry, Medication, Notification,
   NotificationPreference, Paginated, PatientDetail, PatientListItem, Referral, ServiceRequest, StatusTransition,
-  StaffProfile, Transfer, TransferPacket, PatientAccessGrant, PatientSearchRow, PatientProfileSummary,
+  StaffProfile, Transfer, TransferPacket, PatientAccessGrant, PatientSearchRow, PatientProfileSummary, PatientCareSummary,
 } from './types';
 
 export class ApiError extends Error {
@@ -159,6 +159,7 @@ export const patientsApi = {
     return get<PatientSearchRow[]>(`patients/search/?${qs}`);
   },
   get: (id: string) => get<PatientDetail>(`patients/${id}/`),
+  careSummary: (id: string) => get<PatientCareSummary>(`patients/${id}/care-summary/`),
   liveStatus: (id: string) => get<LiveStatusItem[]>(`patients/${id}/live_status/`),
   createUnclaimed: (data: { full_name: string; date_of_birth?: string; gender?: string; phone?: string }) =>
     post<PatientDetail>('patients/create_unclaimed/', data),

@@ -31,18 +31,19 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
   const requests = useApi(() => requestsApi.list({ patient: patientId }), [patientId]);
   const referrals = useApi(() => referralsApi.list(), [patientId]);
   const grants = useApi(() => accessApi.list(), [patientId], accessGate);
+  const careSummary = useApi(() => patientsApi.careSummary(patientId), [patientId], accessGate && !!patient.data);
 
-  // If Management opened the detail route just before the patient approved,
-  // retry the guarded profile request. The API remains the authority: a 403
-  // shows no patient data, and polling stops as soon as access is granted.
+  // Keep the patient endpoint as the authority while Management is on a
+  // grant-backed profile. This detects approval, expiry, or revocation; a 403
+  // switches back to the access gate instead of leaving protected data visible.
   useEffect(() => {
-    if (!accessGate || patient.error?.status !== 403) return;
+    if (!accessGate) return;
     const timer = window.setInterval(() => {
       grants.refetch();
       patient.refetch();
-    }, 4000);
+    }, 5000);
     return () => window.clearInterval(timer);
-  }, [accessGate, patient.error?.status, patient.refetch, grants.refetch]);
+  }, [accessGate, patient.refetch, grants.refetch]);
   // Documents are only requested once the patient record itself was allowed; the backend re-checks access either way.
   const documents = useApi(() => documentsApi.list(patientId), [patientId], !!patient.data);
   const [showNewAdmission, setShowNewAdmission] = useState(false);
@@ -56,11 +57,23 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
     if (grants.loading) return <LoadingBlock rows={4} />;
     return <AccessGate patientId={patientId} grants={grants.data ?? []} backHref={searchBasePath} onChanged={() => { grants.refetch(); patient.refetch(); }} />;
   }
-  if (patient.error || !patient.data) return <ErrorState status={patient.error?.status} onRetry={patient.refetch} />;
+  if (patient.error || !patient.data) return <ErrorState
+    status={patient.error?.status}
+    description={`GET /api/patients/${patientId}/ failed${patient.error?.status ? ` with HTTP ${patient.error.status}` : ''}: ${friendlyError(patient.error?.status)}`}
+    onRetry={patient.refetch}
+  />;
   const p = patient.data;
 
   const myAdmissions = (admissions.data?.results ?? []).filter((a) => a.patient === patientId);
   const hasActiveAdmission = myAdmissions.some((a) => a.status === 'ACTIVE');
+  const journeyAdmissions = accessGate ? careSummary.data?.admissions ?? [] : myAdmissions;
+  const journeyRequests = accessGate ? careSummary.data?.requests ?? [] : requests.data?.results ?? [];
+  const journeyReferrals = accessGate ? careSummary.data?.referrals ?? [] : referrals.data?.results ?? [];
+  const journeyLoading = accessGate ? careSummary.loading : requests.loading || admissions.loading || referrals.loading;
+  const journeyError = accessGate ? careSummary.error : requests.error ?? admissions.error ?? referrals.error;
+  const journeyErrorDescription = accessGate && careSummary.error
+    ? `GET /api/patients/${patientId}/care-summary/ failed with HTTP ${careSummary.error.status}. The profile is authorized, but its care summary could not be loaded.`
+    : undefined;
 
   async function createAdmission(e: React.FormEvent) {
     e.preventDefault();
@@ -130,13 +143,16 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
       {/* Family Access Manager - for patients to manage family access */}
 
       <PatientCareJourney
-        admissions={myAdmissions}
-        requests={requests.data?.results ?? []}
-        referrals={(referrals.data?.results ?? []).filter((item) => item.patient === patientId)}
+        admissions={journeyAdmissions}
+        requests={journeyRequests}
+        referrals={journeyReferrals}
         variant="staff"
-        loading={requests.loading || admissions.loading || referrals.loading}
-        error={requests.error ?? admissions.error ?? referrals.error}
-        onRetry={() => { requests.refetch(); admissions.refetch(); referrals.refetch(); }}
+        loading={journeyLoading}
+        error={journeyError}
+        errorDescription={journeyErrorDescription}
+        transfers={accessGate ? careSummary.data?.transfers : undefined}
+        skipTransferFetch={accessGate}
+        onRetry={accessGate ? careSummary.refetch : () => { requests.refetch(); admissions.refetch(); referrals.refetch(); }}
       />
       <PatientHistoryTimeline patient={p} />
 
@@ -165,7 +181,14 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
           </form>
         )}
         {admissions.loading ? <LoadingBlock rows={2} /> : (
-          <AdmissionsListTable admissions={myAdmissions} detailBase={admissionBasePath} />
+          <>
+            <AdmissionsListTable admissions={myAdmissions} detailBase={admissionBasePath} />
+            {accessGate && careSummary.data?.admissions.some((a) => !myAdmissions.some((mine) => mine.id === a.id)) && (
+              <p className="px-5 pb-4 text-xs text-muted">
+                Other hospitals&rsquo; admission notes and case files remain restricted to those hospitals. Their consent-authorized status summaries appear in the care journey above.
+              </p>
+            )}
+          </>
         )}
       </Card>
     </div>
