@@ -164,7 +164,10 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
         })
 
     def get_permissions(self):
-        if self.action in ('update', 'partial_update', 'destroy'):
+        # This viewset overrides DRF's default get_permissions(), so action-level
+        # permission_classes metadata is not applied automatically. Keep all
+        # staff-only patient operations explicitly role-gated here.
+        if self.action in ('update', 'partial_update', 'destroy', 'admission_candidates'):
             return [IsAuthenticated(), IsStaffOrManagementOrAdmin()]
         return [IsAuthenticated()]
 
@@ -275,6 +278,44 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
         log_action('UNCLAIMED_PATIENT_CREATED', actor=request.user, hospital_id=staff.hospital_id,
                     patient_id=patient.id, target_description=patient.lifelink_patient_id)
         return Response(PatientProfileDetailSerializer(patient).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], url_path='admission-candidates')
+    def admission_candidates(self, request):
+        """List eligible patient records in the authenticated user's hospital.
+
+        Management must have a real, DB-linked StaffProfile to resolve its
+        hospital. A missing profile is a configuration error, not a reason to
+        fall back to an unscoped/global patient query.
+        """
+        staff = get_staff_profile(request.user)
+        if not staff or not staff.is_active:
+            raise PermissionDenied(
+                'This account has no active hospital staff profile. '
+                'Ask your hospital administrator to verify its hospital assignment.'
+            )
+
+        candidates = (
+            PatientProfile.objects.filter(
+                Q(created_by_hospital_id=staff.hospital_id)
+                | Q(created_by_staff__hospital_id=staff.hospital_id)
+                | Q(admissions__hospital_id=staff.hospital_id)
+            )
+            .exclude(admissions__hospital_id=staff.hospital_id, admissions__status='ACTIVE')
+            .distinct()
+            .order_by('full_name', 'lifelink_patient_id')
+        )
+
+        # Reuse the central authorization rule as a second guard. Never return
+        # a patient merely because a client supplied an ID or hospital.
+        return Response([
+            {
+                'id': str(patient.id),  # internal UUID expected by POST /admissions/
+                'lifelink_patient_id': patient.lifelink_patient_id,
+                'full_name': patient.full_name,
+            }
+            for patient in candidates
+            if user_can_access_patient(request.user, patient)
+        ])
 
     @action(detail=False, methods=['post'])
     def claim(self, request):
