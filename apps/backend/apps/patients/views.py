@@ -279,20 +279,15 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
                     patient_id=patient.id, target_description=patient.lifelink_patient_id)
         return Response(PatientProfileDetailSerializer(patient).data, status=status.HTTP_201_CREATED)
 
-    @action(detail=False, methods=['get'], url_path='admission-candidates')
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsStaffOrManagementOrAdmin], url_path='admission-candidates')
     def admission_candidates(self, request):
-        """List eligible patient records in the authenticated user's hospital.
-
-        Management must have a real, DB-linked StaffProfile to resolve its
-        hospital. A missing profile is a configuration error, not a reason to
-        fall back to an unscoped/global patient query.
+        """Return only patients belonging to this staff member's hospital
+        who do not currently have an active admission there. Registration
+        creates a PatientProfile; admission remains a separate explicit step.
         """
         staff = get_staff_profile(request.user)
-        if not staff or not staff.is_active:
-            raise PermissionDenied(
-                'This account has no active hospital staff profile. '
-                'Ask your hospital administrator to verify its hospital assignment.'
-            )
+        if not staff:
+            raise PermissionDenied('Only hospital staff can view admission candidates.')
 
         candidates = (
             PatientProfile.objects.filter(
@@ -304,12 +299,9 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
             .distinct()
             .order_by('full_name', 'lifelink_patient_id')
         )
-
-        # Reuse the central authorization rule as a second guard. Never return
-        # a patient merely because a client supplied an ID or hospital.
         return Response([
             {
-                'id': str(patient.id),  # internal UUID expected by POST /admissions/
+                'id': str(patient.id),
                 'lifelink_patient_id': patient.lifelink_patient_id,
                 'full_name': patient.full_name,
             }

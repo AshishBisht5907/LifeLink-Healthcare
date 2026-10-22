@@ -1,0 +1,134 @@
+From c4134a0e0e9aad51504b9d1d6844e14cd26c5066 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 19 Oct 2026 19:09:20 +0000
+Subject: [PATCH] Fix Management access gate losing typed input; correct
+ care-summary 403 message
+
+- PatientDetailView: while the patient record is denied (403) the 5s poll now
+  refreshes only the grant list. Re-fetching a denied record (no data yet)
+  flipped patient.loading to true, replaced the page with a skeleton, and
+  unmounted the access gate, discarding the reason typed in the request dialog.
+  When a live grant appears, the record and care summary are re-checked once.
+- Replace the hardcoded "The profile is authorized" care-summary error with
+  wording that matches the status: a 403 means access ended or changed.
+  Text moved to careSummaryErrorMessage() in accessState.ts.
+- Add tests asserting the 403 message never claims authorization.
+
+No backend, permission, queryset, serializer or audit-log changes.
+---
+ .../components/records/PatientDetailView.tsx  | 31 ++++++++++++++++---
+ apps/web/src/lib/accessState.test.mjs         | 14 ++++++++-
+ apps/web/src/lib/accessState.ts               | 11 +++++++
+ 3 files changed, 50 insertions(+), 6 deletions(-)
+
+diff --git a/apps/web/src/components/records/PatientDetailView.tsx b/apps/web/src/components/records/PatientDetailView.tsx
+index 7197c0d..31f7f82 100644
+--- a/apps/web/src/components/records/PatientDetailView.tsx
++++ b/apps/web/src/components/records/PatientDetailView.tsx
+@@ -13,7 +13,7 @@ import { LoadingBlock, ErrorState } from '@/components/ui/States';
+ import { PatientCareJourney } from '@/components/health/PatientCareJourney';
+ import { useToast } from '@/components/ui/Toast';
+ import { AccessBanner, AccessGate } from '@/components/access/AccessGate';
+-import { activeGrant } from '@/lib/accessState';
++import { activeGrant, careSummaryErrorMessage } from '@/lib/accessState';
+ import { DocumentsPanel } from '@/components/records/DocumentsPanel';
+ import { friendlyError } from '@/lib/format';
+ 
+@@ -36,14 +36,32 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
+   // Keep the patient endpoint as the authority while Management is on a
+   // grant-backed profile. This detects approval, expiry, or revocation; a 403
+   // switches back to the access gate instead of leaving protected data visible.
++  //
++  // While the record is DENIED we only poll the grant list. Re-fetching a
++  // denied record (which has no data yet) flips `patient.loading` to true,
++  // which replaces the page with a skeleton and unmounts the access gate,
++  // throwing away whatever the user was typing in the request dialog.
++  const refetchPatient = patient.refetch;
++  const refetchGrants = grants.refetch;
++  const refetchSummary = careSummary.refetch;
++  const recordDenied = patient.error?.status === 403;
++  const liveGrantId = accessGate ? activeGrant(grants.data ?? [], patientId)?.id ?? null : null;
+   useEffect(() => {
+     if (!accessGate) return;
+     const timer = window.setInterval(() => {
+-      grants.refetch();
+-      patient.refetch();
++      refetchGrants();
++      if (!recordDenied) refetchPatient();
+     }, 5000);
+     return () => window.clearInterval(timer);
+-  }, [accessGate, patient.refetch, grants.refetch]);
++  }, [accessGate, recordDenied, refetchPatient, refetchGrants]);
++
++  // The patient approved (or emergency access began): re-check the record once.
++  // The backend still decides; this only prompts it to be asked again.
++  useEffect(() => {
++    if (!accessGate || !liveGrantId) return;
++    refetchPatient();
++    refetchSummary();
++  }, [accessGate, liveGrantId, refetchPatient, refetchSummary]);
+   // Documents are only requested once the patient record itself was allowed; the backend re-checks access either way.
+   const documents = useApi(() => documentsApi.list(patientId), [patientId], !!patient.data);
+   const [showNewAdmission, setShowNewAdmission] = useState(false);
+@@ -71,8 +89,11 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
+   const journeyReferrals = accessGate ? careSummary.data?.referrals ?? [] : referrals.data?.results ?? [];
+   const journeyLoading = accessGate ? careSummary.loading : requests.loading || admissions.loading || referrals.loading;
+   const journeyError = accessGate ? careSummary.error : requests.error ?? admissions.error ?? referrals.error;
++  // Never claim the user is "authorized" here: the care summary is checked
++  // separately and its 403 means access has ended or changed since the record
++  // loaded. The access poll above will move the page to the access gate.
+   const journeyErrorDescription = accessGate && careSummary.error
+-    ? `GET /api/patients/${patientId}/care-summary/ failed with HTTP ${careSummary.error.status}. The profile is authorized, but its care summary could not be loaded.`
++    ? careSummaryErrorMessage(careSummary.error.status, patientId)
+     : undefined;
+ 
+   async function createAdmission(e: React.FormEvent) {
+diff --git a/apps/web/src/lib/accessState.test.mjs b/apps/web/src/lib/accessState.test.mjs
+index 7a179ad..5d071ea 100644
+--- a/apps/web/src/lib/accessState.test.mjs
++++ b/apps/web/src/lib/accessState.test.mjs
+@@ -1,6 +1,6 @@
+ import test from 'node:test';
+ import assert from 'node:assert/strict';
+-import { describeAccess, activeGrant } from './accessState.ts';
++import { describeAccess, activeGrant, careSummaryErrorMessage } from './accessState.ts';
+ 
+ const NOW = new Date('2026-09-30T12:00:00Z').getTime();
+ const grant = (o = {}) => ({ id: 'g', patient_id: 'p1', grant_type: 'NORMAL', status: 'PENDING', created_at: '2026-09-30T10:00:00Z', expires_at: null, ...o });
+@@ -75,3 +75,15 @@ test('empty in, empty out', () => {
+   const g = groupPatientGrants([], NOW);
+   assert.deepEqual([g.pending, g.active, g.history], [[], [], []]);
+ });
++
++test('care-summary 403 says access ended/changed and never claims the user is authorized', () => {
++  const m = careSummaryErrorMessage(403, 'p1');
++  assert.match(m, /ended or changed/);
++  assert.doesNotMatch(m, /authori[sz]ed/i);
++});
++test('other care-summary failures name the status and do not claim authorization', () => {
++  const m = careSummaryErrorMessage(500, 'p1');
++  assert.match(m, /HTTP 500/);
++  assert.match(m, /patients\/p1\/care-summary/);
++  assert.doesNotMatch(m, /authori[sz]ed/i);
++});
+diff --git a/apps/web/src/lib/accessState.ts b/apps/web/src/lib/accessState.ts
+index 9553090..a9932ad 100644
+--- a/apps/web/src/lib/accessState.ts
++++ b/apps/web/src/lib/accessState.ts
+@@ -115,3 +115,14 @@ export function groupPatientGrants(grants: PatientAccessGrant[], now = Date.now(
+   active.sort((a, b) => new Date(a.expires_at!).getTime() - new Date(b.expires_at!).getTime());
+   return { pending, active, history };
+ }
++
++/**
++ * Text for a failed care-summary call. A 403 means access ended or changed
++ * after the record loaded, so it must NEVER say the user is "authorized".
++ */
++export function careSummaryErrorMessage(status: number, patientId: string): string {
++  if (status === 403) {
++    return 'Your access to this patient has ended or changed, so the care summary cannot be shown. This page re-checks your access every few seconds.';
++  }
++  return `GET /api/patients/${patientId}/care-summary/ failed with HTTP ${status}. The patient record loaded, but its care summary could not be loaded.`;
++}
+-- 
+2.43.0

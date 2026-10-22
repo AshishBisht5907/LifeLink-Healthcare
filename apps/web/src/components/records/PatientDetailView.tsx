@@ -13,7 +13,7 @@ import { LoadingBlock, ErrorState } from '@/components/ui/States';
 import { PatientCareJourney } from '@/components/health/PatientCareJourney';
 import { useToast } from '@/components/ui/Toast';
 import { AccessBanner, AccessGate } from '@/components/access/AccessGate';
-import { activeGrant } from '@/lib/accessState';
+import { activeGrant, careSummaryErrorMessage } from '@/lib/accessState';
 import { DocumentsPanel } from '@/components/records/DocumentsPanel';
 import { friendlyError } from '@/lib/format';
 
@@ -36,14 +36,32 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
   // Keep the patient endpoint as the authority while Management is on a
   // grant-backed profile. This detects approval, expiry, or revocation; a 403
   // switches back to the access gate instead of leaving protected data visible.
+  //
+  // While the record is DENIED we only poll the grant list. Re-fetching a
+  // denied record (which has no data yet) flips `patient.loading` to true,
+  // which replaces the page with a skeleton and unmounts the access gate,
+  // throwing away whatever the user was typing in the request dialog.
+  const refetchPatient = patient.refetch;
+  const refetchGrants = grants.refetch;
+  const refetchSummary = careSummary.refetch;
+  const recordDenied = patient.error?.status === 403;
+  const liveGrantId = accessGate ? activeGrant(grants.data ?? [], patientId)?.id ?? null : null;
   useEffect(() => {
     if (!accessGate) return;
     const timer = window.setInterval(() => {
-      grants.refetch();
-      patient.refetch();
+      refetchGrants();
+      if (!recordDenied) refetchPatient();
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [accessGate, patient.refetch, grants.refetch]);
+  }, [accessGate, recordDenied, refetchPatient, refetchGrants]);
+
+  // The patient approved (or emergency access began): re-check the record once.
+  // The backend still decides; this only prompts it to be asked again.
+  useEffect(() => {
+    if (!accessGate || !liveGrantId) return;
+    refetchPatient();
+    refetchSummary();
+  }, [accessGate, liveGrantId, refetchPatient, refetchSummary]);
   // Documents are only requested once the patient record itself was allowed; the backend re-checks access either way.
   const documents = useApi(() => documentsApi.list(patientId), [patientId], !!patient.data);
   const [showNewAdmission, setShowNewAdmission] = useState(false);
@@ -71,8 +89,11 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
   const journeyReferrals = accessGate ? careSummary.data?.referrals ?? [] : referrals.data?.results ?? [];
   const journeyLoading = accessGate ? careSummary.loading : requests.loading || admissions.loading || referrals.loading;
   const journeyError = accessGate ? careSummary.error : requests.error ?? admissions.error ?? referrals.error;
+  // Never claim the user is "authorized" here: the care summary is checked
+  // separately and its 403 means access has ended or changed since the record
+  // loaded. The access poll above will move the page to the access gate.
   const journeyErrorDescription = accessGate && careSummary.error
-    ? `GET /api/patients/${patientId}/care-summary/ failed with HTTP ${careSummary.error.status}. The profile is authorized, but its care summary could not be loaded.`
+    ? careSummaryErrorMessage(careSummary.error.status, patientId)
     : undefined;
 
   async function createAdmission(e: React.FormEvent) {

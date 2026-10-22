@@ -164,7 +164,7 @@ export const patientsApi = {
   liveStatus: (id: string) => get<LiveStatusItem[]>(`patients/${id}/live_status/`),
   createUnclaimed: (data: { full_name: string; date_of_birth?: string; gender?: string; phone?: string }) =>
     post<PatientDetail>('patients/create_unclaimed/', data),
-  admissionCandidates: () => get<AdmissionCandidate[]>('patients/admission-candidates/'),
+  admissionCandidates: () => get<import('./types').AdmissionCandidate[]>('patients/admission-candidates/'),
   claim: (lifelink_patient_id: string) => post<PatientDetail>('patients/claim/', { lifelink_patient_id }),
   grantAccess: (id: string) => post<{ detail: string; otp_id: string; dev_otp?: string }>(`patients/${id}/send_welcome_sms/`, {}),
   allergies: (patientId: string) => get<Allergy[]>(`patients/allergies/?patient=${patientId}`),
