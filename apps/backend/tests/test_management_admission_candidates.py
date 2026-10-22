@@ -47,7 +47,7 @@ def test_registered_patient_is_available_then_admitted_once(api_client, manageme
         format='json',
     )
     assert created.status_code == status.HTTP_201_CREATED
-    assert created.data['patient'] == patient_id
+    assert str(created.data['patient']) == str(patient_id)
     assert Admission.objects.filter(patient_id=patient_id, hospital=hospital_a).count() == 1
     assert PatientProfile.objects.filter(pk=patient_id).count() == 1
 
@@ -149,7 +149,7 @@ def test_patient_approved_self_registered_record_can_be_admitted_and_then_opened
         format='json',
     )
     assert admission_response.status_code == status.HTTP_201_CREATED
-    assert admission_response.data['patient'] == str(patient.id)
+    assert str(admission_response.data['patient']) == str(patient.id)
     assert Admission.objects.filter(patient=patient, hospital=hospital_a).count() == 1
     assert PatientProfile.objects.filter(pk=patient.id).count() == initial_patient_count
 
