@@ -2,10 +2,10 @@ import datetime
 
 import pytest
 from rest_framework import status
+from django.utils import timezone
 
 from apps.accounts.models import Role, User
 from apps.admissions.models import Admission
-from apps.hospitals.models import StaffProfile
 from apps.patients.models import (
     AccessGrantStatus, DataSource, MedicalHistoryEntry, MedicalHistoryEventType,
     PatientAccessGrant, PatientProfile, VerificationStatus,
