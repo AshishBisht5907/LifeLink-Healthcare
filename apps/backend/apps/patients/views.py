@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -289,12 +290,27 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
         if not staff:
             raise PermissionDenied('Only hospital staff can view admission candidates.')
 
-        candidates = (
-            PatientProfile.objects.filter(
-                Q(created_by_hospital_id=staff.hospital_id)
-                | Q(created_by_staff__hospital_id=staff.hospital_id)
-                | Q(admissions__hospital_id=staff.hospital_id)
+        # Management may admit a self-registered patient only after that exact
+        # Management user has a live patient-approved/emergency grant for this
+        # hospital. Include those grant-backed patients in the selector; do not
+        # widen the grant to other staff or other hospitals. Once admitted,
+        # the existing hospital-scope predicate lets this hospital's staff
+        # access the patient's profile and role-scoped care workflows.
+        candidate_scope = (
+            Q(created_by_hospital_id=staff.hospital_id)
+            | Q(created_by_staff__hospital_id=staff.hospital_id)
+            | Q(admissions__hospital_id=staff.hospital_id)
+        )
+        if request.user.role == 'HOSPITAL_MANAGEMENT':
+            candidate_scope |= Q(
+                access_grants__requested_by=request.user,
+                access_grants__hospital_id=staff.hospital_id,
+                access_grants__status=AccessGrantStatus.APPROVED,
+                access_grants__expires_at__gt=timezone.now(),
             )
+
+        candidates = (
+            PatientProfile.objects.filter(candidate_scope)
             .exclude(admissions__hospital_id=staff.hospital_id, admissions__status='ACTIVE')
             .distinct()
             .order_by('full_name', 'lifelink_patient_id')

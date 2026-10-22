@@ -43,7 +43,7 @@ export default function ManagementAdmissionsPage() {
       <div><h1 className="text-xl font-semibold">Admissions</h1><p className="mt-0.5 text-sm text-muted">Patients admitted to your hospital.</p></div>
 
       <Card>
-        <CardHeader title="Start an admission" subtitle="Choose a registered patient from your hospital. Registration does not admit the patient." />
+        <CardHeader title="Start an admission" subtitle="Choose a patient registered at your hospital, or one whose access request you have received patient approval for. Registration alone does not admit the patient." />
         {candidates.loading ? <LoadingBlock rows={2} /> : candidates.error ? (
           <div className="p-5"><ErrorState status={candidates.error.status} description={candidates.error.message} onRetry={candidates.refetch} /></div>
         ) : (
@@ -59,7 +59,7 @@ export default function ManagementAdmissionsPage() {
               </Select>
             </Field>
             {(candidates.data ?? []).length === 0 && (
-              <p className="text-xs text-muted">No patients are currently eligible. Register a patient first, or check whether they already have an active admission.</p>
+              <p className="text-xs text-muted">No patients are currently eligible. Register a patient, or find them by LifeLink Patient ID in Patients and request their approval before admitting. Patients with an active admission here are excluded.</p>
             )}
             <Field label="Reason for admission" required>
               <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} required placeholder="Enter the reason for this admission" />
