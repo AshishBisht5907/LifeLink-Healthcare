@@ -1,0 +1,133 @@
+From 33be260fcb75e6a8c6e6ae7b0b44cefba3c3fc81 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 22 Oct 2026 09:45:35 +0000
+Subject: [PATCH] Add post-registration workflow tests; explain why staff can't
+ open some patients
+
+- Backend tests lock in the current access policy end to end: a self-registered
+  patient is blocked for every hospital role; only Management can request
+  consent; after patient approval and admission every staff role of that
+  hospital can open the record; hospital-registered patients open immediately;
+  another hospital stays blocked (profile 403, admission 404). Verified the
+  tests fail if the hospital-scope check is removed.
+- PatientSearchView: replace "outside your hospital" with an accurate
+  explanation for staff who cannot open a patient.
+
+No permission, queryset, serializer or audit-log code is changed.
+---
+ .../tests/test_post_registration_workflow.py  | 90 +++++++++++++++++++
+ .../components/records/PatientSearchView.tsx  |  2 +-
+ 2 files changed, 91 insertions(+), 1 deletion(-)
+ create mode 100644 apps/backend/tests/test_post_registration_workflow.py
+
+diff --git a/apps/backend/tests/test_post_registration_workflow.py b/apps/backend/tests/test_post_registration_workflow.py
+new file mode 100644
+index 0000000..b1ab25f
+--- /dev/null
++++ b/apps/backend/tests/test_post_registration_workflow.py
+@@ -0,0 +1,90 @@
++"""End-to-end post-registration hospital workflow.
++
++Documents and locks in the CURRENT access policy (no permission code is
++changed here):
++
++* A patient who registered themselves has no hospital link, so NO hospital
++  user can open the profile until the patient consents.
++* Only Management can ask for that consent (an access grant). The patient
++  approves it, Management admits, and the admission then brings the patient
++  into the hospital's scope so every staff role of that hospital can open it.
++* A patient registered by hospital staff is in that hospital's scope at once.
++* Another hospital stays blocked throughout.
++"""
++import pytest
++from apps.hospitals.models import StaffRole
++from apps.patients.models import PatientProfile
++from tests.conftest import _make_staff, auth_client
++from tests.test_patient_access_grants import self_registered  # noqa: F401  (fixture)
++
++pytestmark = pytest.mark.django_db
++
++STAFF_ROLES = [r for r in StaffRole.values if r != StaffRole.ADMIN]
++
++
++@pytest.fixture
++def hospital_a_users(hospital_a, dept_general_a, management_a, hospital_admin_a):
++    users = {r: _make_staff(hospital_a, dept_general_a, r, f'wf_{r.lower()}') for r in STAFF_ROLES}
++    users['MANAGEMENT'] = management_a
++    users['HOSPITAL_ADMIN'] = hospital_admin_a
++    return users
++
++
++def _profile_status(user, patient):
++    return auth_client(user).get(f'/api/patients/{patient.id}/').status_code
++
++
++def test_self_registered_patient_is_blocked_for_every_hospital_role(hospital_a_users, self_registered):
++    for name, user in hospital_a_users.items():
++        assert _profile_status(user, self_registered) == 403, name
++        row = auth_client(user).get('/api/patients/search/',
++                                    {'lifelink_patient_id': self_registered.lifelink_patient_id}).json()[0]
++        assert row['access'] == 'NONE' and row['full_name'] == 'R*** S*****', name
++        assert 'phone' not in row and 'date_of_birth' not in row, name
++        # Only Management is offered the consent request.
++        assert row['can_request_access'] is (name == 'MANAGEMENT'), name
++
++
++def test_staff_registered_patient_opens_for_every_hospital_role_but_not_other_hospital(
++        hospital_a_users, management_b):
++    r = auth_client(hospital_a_users['DOCTOR']).post(
++        '/api/patients/create_unclaimed/', {'full_name': 'Asha Verma', 'phone': '9000000009', 'gender': 'F'})
++    assert r.status_code == 201
++    patient = PatientProfile.objects.get(phone='9000000009')
++    for name, user in hospital_a_users.items():
++        assert _profile_status(user, patient) == 200, name
++        row = auth_client(user).get('/api/patients/search/', {'phone': '9000000009'}).json()[0]
++        assert row['access'] == 'GRANTED', name
++    assert _profile_status(management_b, patient) == 403
++
++
++def test_request_approve_admit_then_every_staff_role_can_open(hospital_a_users, management_b, self_registered):
++    m = auth_client(hospital_a_users['MANAGEMENT'])
++    pid = self_registered.id
++
++    gid = m.post('/api/patients/access-requests/', {'patient': str(pid), 'reason': 'Planned admission'}).json()['id']
++    # Pending consent opens nothing and Management cannot admit yet.
++    assert _profile_status(hospital_a_users['MANAGEMENT'], self_registered) == 403
++    assert m.post('/api/admissions/', {'patient': str(pid), 'reason': 'Observation'}).status_code == 403
++
++    assert auth_client(self_registered.user).post(
++        f'/api/patients/access-requests/{gid}/approve/').json()['status'] == 'APPROVED'
++    assert _profile_status(hospital_a_users['MANAGEMENT'], self_registered) == 200
++    # A grant belongs to Management alone; ordinary staff are still blocked.
++    assert _profile_status(hospital_a_users['DOCTOR'], self_registered) == 403
++
++    adm = m.post('/api/admissions/', {'patient': str(pid), 'reason': 'Observation'})
++    assert adm.status_code == 201
++
++    # The admission puts the patient in the hospital's scope: all roles open it.
++    for name, user in hospital_a_users.items():
++        assert _profile_status(user, self_registered) == 200, name
++    # Another hospital stays out: no profile, no admission.
++    assert _profile_status(management_b, self_registered) == 403
++    assert auth_client(management_b).get(f"/api/admissions/{adm.json()['id']}/").status_code == 404
++
++
++def test_ordinary_staff_cannot_request_patient_access(hospital_a_users, self_registered):
++    r = auth_client(hospital_a_users['DOCTOR']).post(
++        '/api/patients/access-requests/', {'patient': str(self_registered.id), 'reason': 'Planned admission'})
++    assert r.status_code == 403
+diff --git a/apps/web/src/components/records/PatientSearchView.tsx b/apps/web/src/components/records/PatientSearchView.tsx
+index 1c11440..f6d39a1 100644
+--- a/apps/web/src/components/records/PatientSearchView.tsx
++++ b/apps/web/src/components/records/PatientSearchView.tsx
+@@ -114,7 +114,7 @@ export function PatientSearchView({ basePath, allowOpen = true, allowRegister =
+                     ) : state.canOpen ? (
+                       <p className="max-w-xs text-xs text-muted">Clinical records are opened by care staff, not from this page.</p>
+                     ) : (
+-                      <p className="max-w-xs text-xs text-muted">This patient is outside your hospital. Ask hospital management to request access.</p>
++                      <p className="max-w-xs text-xs text-muted">This patient is not registered at or admitted to your hospital yet, so their record is private. Hospital management can ask the patient for approval; once the patient is admitted here, you can open the record.</p>
+                     )}
+                   </li>
+                 );
+-- 
+2.43.0
