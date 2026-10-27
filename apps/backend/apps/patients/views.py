@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -164,7 +165,10 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
         })
 
     def get_permissions(self):
-        if self.action in ('update', 'partial_update', 'destroy'):
+        # This viewset overrides DRF's default get_permissions(), so action-level
+        # permission_classes metadata is not applied automatically. Keep all
+        # staff-only patient operations explicitly role-gated here.
+        if self.action in ('update', 'partial_update', 'destroy', 'admission_candidates'):
             return [IsAuthenticated(), IsStaffOrManagementOrAdmin()]
         return [IsAuthenticated()]
 
@@ -285,6 +289,51 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
         log_action('UNCLAIMED_PATIENT_CREATED', actor=request.user, hospital_id=staff.hospital_id,
                     patient_id=patient.id, target_description=patient.lifelink_patient_id)
         return Response(PatientProfileDetailSerializer(patient).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsStaffOrManagementOrAdmin], url_path='admission-candidates')
+    def admission_candidates(self, request):
+        """Return only patients belonging to this staff member's hospital
+        who do not currently have an active admission there. Registration
+        creates a PatientProfile; admission remains a separate explicit step.
+        """
+        staff = get_staff_profile(request.user)
+        if not staff:
+            raise PermissionDenied('Only hospital staff can view admission candidates.')
+
+        # Management may admit a self-registered patient only after that exact
+        # Management user has a live patient-approved/emergency grant for this
+        # hospital. Include those grant-backed patients in the selector; do not
+        # widen the grant to other staff or other hospitals. Once admitted,
+        # the existing hospital-scope predicate lets this hospital's staff
+        # access the patient's profile and role-scoped care workflows.
+        candidate_scope = (
+            Q(created_by_hospital_id=staff.hospital_id)
+            | Q(created_by_staff__hospital_id=staff.hospital_id)
+            | Q(admissions__hospital_id=staff.hospital_id)
+        )
+        if request.user.role == 'HOSPITAL_MANAGEMENT':
+            candidate_scope |= Q(
+                access_grants__requested_by=request.user,
+                access_grants__hospital_id=staff.hospital_id,
+                access_grants__status=AccessGrantStatus.APPROVED,
+                access_grants__expires_at__gt=timezone.now(),
+            )
+
+        candidates = (
+            PatientProfile.objects.filter(candidate_scope)
+            .exclude(admissions__hospital_id=staff.hospital_id, admissions__status='ACTIVE')
+            .distinct()
+            .order_by('full_name', 'lifelink_patient_id')
+        )
+        return Response([
+            {
+                'id': str(patient.id),
+                'lifelink_patient_id': patient.lifelink_patient_id,
+                'full_name': patient.full_name,
+            }
+            for patient in candidates
+            if user_can_access_patient(request.user, patient)
+        ])
 
     @action(detail=False, methods=['post'])
     def claim(self, request):
