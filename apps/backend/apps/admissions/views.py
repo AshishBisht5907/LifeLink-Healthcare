@@ -4,6 +4,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.utils import timezone
+from django.db import IntegrityError, transaction
 
 from apps.accounts.permissions import IsStaffOrManagementOrAdmin, get_staff_profile
 from apps.admissions.models import Admission, AdmissionStatus, DoctorNote, NursingNote
@@ -49,6 +50,7 @@ class AdmissionViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), IsStaffOrManagementOrAdmin()]
         return [IsAuthenticated()]
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = AdmissionCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -67,6 +69,11 @@ class AdmissionViewSet(viewsets.ModelViewSet):
         if not user_can_access_patient(request.user, patient):
             raise PermissionDenied('You must have authorised access to this patient before creating an admission.')
 
+        if Admission.objects.filter(patient=patient, hospital=staff.hospital,
+                                    status=AdmissionStatus.ACTIVE).exists():
+            return Response({'detail': 'This patient already has an active admission at your hospital.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         attending_doctor_id = d.get('attending_doctor')
         if attending_doctor_id:
             from apps.hospitals.models import StaffProfile, StaffRole
@@ -83,14 +90,20 @@ class AdmissionViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        admission = Admission.objects.create(
-            patient=patient,
-            hospital=staff.hospital,
-            admission_number=Admission.generate_admission_number(staff.hospital),
-            reason=d.get('reason', ''),
-            attending_doctor_id=d.get('attending_doctor'),
-            created_by=request.user,
-        )
+        try:
+            with transaction.atomic():
+                PatientProfile.objects.select_for_update().get(pk=patient.pk)
+                admission = Admission.objects.create(
+                    patient=patient,
+                    hospital=staff.hospital,
+                    admission_number=Admission.generate_admission_number(staff.hospital),
+                    reason=d.get('reason', ''),
+                    attending_doctor_id=d.get('attending_doctor'),
+                    created_by=request.user,
+                )
+        except IntegrityError:
+            return Response({'detail': 'This patient already has an active admission at your hospital.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         from apps.notifications.services import notify_admission_created
         notify_admission_created(admission)

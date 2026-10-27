@@ -44,6 +44,9 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
     }, 5000);
     return () => window.clearInterval(timer);
   }, [accessGate, patient.refetch, grants.refetch]);
+  useEffect(() => {
+    setShowNewAdmission(new URLSearchParams(window.location.search).get('admit') === '1');
+  }, [patientId]);
   // Documents are only requested once the patient record itself was allowed; the backend re-checks access either way.
   const documents = useApi(() => documentsApi.list(patientId), [patientId], !!patient.data);
   const [showNewAdmission, setShowNewAdmission] = useState(false);

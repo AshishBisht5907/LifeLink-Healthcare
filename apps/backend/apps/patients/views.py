@@ -168,6 +168,16 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated(), IsStaffOrManagementOrAdmin()]
         return [IsAuthenticated()]
 
+    def perform_update(self, serializer):
+        if not user_can_access_patient(self.request.user, serializer.instance):
+            raise PermissionDenied('You are not authorised to update this patient.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not user_can_access_patient(self.request.user, instance):
+            raise PermissionDenied('You are not authorised to update this patient.')
+        instance.delete()
+
     @action(detail=False, methods=['get'])
     def me(self, request):
         """

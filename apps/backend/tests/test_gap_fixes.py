@@ -65,6 +65,56 @@ def test_management_can_view_unclaimed_patient_created_in_their_hospital(managem
 
 
 @pytest.mark.django_db
+def test_registered_patient_is_retrievable_and_updatable_by_own_hospital_staff(management_a):
+    client = auth_client(management_a)
+    created = client.post('/api/patients/create_unclaimed/', {
+        'full_name': 'Newly Registered Patient',
+        'date_of_birth': '1988-04-12',
+        'gender': 'F',
+        'phone': '9876504321',
+    }, format='json')
+
+    assert created.status_code == 201
+    patient_id = created.json()['id']
+    assert client.get(f'/api/patients/{patient_id}/').status_code == 200
+
+    updated = client.patch(f'/api/patients/{patient_id}/', {'phone': '9876504322'}, format='json')
+    assert updated.status_code == 200
+    assert updated.json()['phone'] == '9876504322'
+
+
+@pytest.mark.django_db
+def test_hospital_staff_cannot_update_patient_outside_their_hospital(management_b):
+    patient = PatientProfile.objects.create(
+        lifelink_patient_id='LL-P-999997', full_name='Private Patient', phone='9876509988',
+    )
+    response = auth_client(management_b).patch(
+        f'/api/patients/{patient.id}/', {'phone': '0000000000'}, format='json',
+    )
+
+    assert response.status_code == 403
+    patient.refresh_from_db()
+    assert patient.phone == '9876509988'
+
+
+@pytest.mark.django_db
+def test_admission_creation_persists_once_and_rejects_duplicate_active_admission(management_a, patient):
+    client = auth_client(management_a)
+    payload = {'patient': str(patient.id), 'reason': 'Assessment and inpatient care'}
+
+    first = client.post('/api/admissions/', payload, format='json')
+    assert first.status_code == 201
+    assert first.json()['patient'] == str(patient.id)
+    assert Admission.objects.filter(patient=patient, hospital_id=management_a.staff_profile.hospital_id,
+                                    status='ACTIVE').count() == 1
+
+    duplicate = client.post('/api/admissions/', payload, format='json')
+    assert duplicate.status_code == 400
+    assert Admission.objects.filter(patient=patient, hospital_id=management_a.staff_profile.hospital_id,
+                                    status='ACTIVE').count() == 1
+
+
+@pytest.mark.django_db
 def test_management_capacity_post_updates_existing_resource_for_same_hospital(management_a, hospital_a):
     """Repeated management updates to the same resource should update the
     existing capacity row instead of trying to insert a duplicate row."""

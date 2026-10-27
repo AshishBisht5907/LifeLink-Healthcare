@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, ClipboardPlus, UserRound } from 'lucide-react';
 import { patientsApi, ApiError } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import type { PatientListItem } from '@/lib/types';
@@ -15,7 +14,6 @@ import { DateInput } from '@/components/ui/DateInput';
 import { validateRequired, validatePhone, validateDOB, validateGender } from '@/lib/validation';
 
 export function NewPatientView({ basePath }: { basePath: string }) {
-  const router = useRouter();
   const toast = useToast();
   const [fullName, setFullName] = useState('');
   const [dob, setDob] = useState('');
@@ -105,11 +103,6 @@ export function NewPatientView({ basePath }: { basePath: string }) {
       setCreatedPatient(patient);
       toast.show('success', 'Patient registered', `${fullName} has been successfully registered.`);
       setMessage('');
-
-      // Navigate to patient details page
-      setTimeout(() => {
-        router.push(`${basePath}/${patient.id}`);
-      }, 1500);
     } catch (err) {
       const apiError = err instanceof ApiError ? err : null;
       if (apiError?.status === 409 && apiError.detail && typeof apiError.detail === 'object') {
@@ -199,6 +192,22 @@ export function NewPatientView({ basePath }: { basePath: string }) {
 
           {/* Actions */}
           <div className="space-y-4 border-t border-border pt-4">
+            {createdPatient && (
+              <div className="space-y-3 rounded-lg border border-success/30 bg-success-tint p-4" role="status">
+                <div>
+                  <p className="text-sm font-semibold text-success">Patient registered successfully</p>
+                  <p className="mt-1 text-xs text-foreground">{createdPatient.full_name} · {createdPatient.lifelink_patient_id}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link href={`${basePath}/${createdPatient.id}?admit=1`}>
+                    <Button variant="primary" size="sm"><ClipboardPlus className="h-3.5 w-3.5" /> Admit Patient</Button>
+                  </Link>
+                  <Link href={`${basePath}/${createdPatient.id}`}>
+                    <Button variant="secondary" size="sm"><UserRound className="h-3.5 w-3.5" /> Open patient profile</Button>
+                  </Link>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-3">
               <Button
                 type="button"
