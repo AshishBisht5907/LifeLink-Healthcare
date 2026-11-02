@@ -5,8 +5,8 @@ export type Role = 'PATIENT' | 'FAMILY' | 'HOSPITAL_STAFF' | 'HOSPITAL_MANAGEMEN
 export interface ConsentChoice { action: ConsentUiAction; label: string; variant: 'primary' | 'danger' | 'secondary' }
 
 /**
- * Only the PATIENT is offered decisions here. The backend also lets a full-representative family
- * member decide, but the product rule is that family never answers for the patient, so the UI never offers it.
+ * Only the patient on the consent request may decide it. The backend enforces
+ * this independently of the UI.
  */
 export function consentChoices(status: string, role: Role): ConsentChoice[] {
   if (role !== 'PATIENT') return [];
@@ -15,14 +15,14 @@ export function consentChoices(status: string, role: Role): ConsentChoice[] {
     { action: 'DECLINE', label: 'Decline', variant: 'danger' },
     { action: 'ASK_DOCTOR', label: 'Ask doctor first', variant: 'secondary' },
   ];
-  if (status === 'APPROVED') return [{ action: 'DECLINE', label: 'Withdraw consent', variant: 'danger' }];
+  if (status === 'APPROVED') return [{ action: 'DECLINE', label: 'Withdraw procedure consent', variant: 'danger' }];
   if (status === 'DECLINED') return [{ action: 'APPROVE', label: 'Approve now', variant: 'primary' }];
   return [];
 }
 
 export const CONSENT_CONFIRM: Record<ConsentUiAction, { title: string; body: string; done: string }> = {
-  APPROVE: { title: 'Approve this consent?', body: 'You are agreeing to the procedure described. Your most recent consent also decides whether authorised family members can open your record.', done: 'Consent approved' },
-  DECLINE: { title: 'Decline or withdraw consent?', body: 'The hospital will see this as declined. Your most recent consent also decides whether authorised family members can open your record, so this will lock it.', done: 'Consent declined' },
+  APPROVE: { title: 'Approve this procedure consent?', body: 'You are agreeing to the procedure described. This decision does not change who can view your record; manage family access separately from Family access.', done: 'Procedure consent approved' },
+  DECLINE: { title: 'Decline or withdraw procedure consent?', body: 'The hospital will see this procedure consent as declined. This does not change family access to your record.', done: 'Procedure consent declined' },
   ASK_DOCTOR: { title: 'Ask the doctor first?', body: 'This tells the care team you want to talk before deciding. The consent stays pending.', done: 'Doctor asked to get in touch' },
 };
 

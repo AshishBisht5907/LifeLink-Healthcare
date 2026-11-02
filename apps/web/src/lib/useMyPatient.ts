@@ -69,7 +69,7 @@ export interface LinkedPatient {
  * All patients linked to this account (a family user may have several).
  * Deliberately keeps ONLY id, LifeLink ID and name from /patients/me/.
  * Medical details are loaded through GET /patients/<id>/ instead, because
- * that endpoint enforces family consent and this one does not.
+ * that endpoint enforces the active family-link access level and this one does not.
  */
 export function useLinkedPatients() {
   const { user } = useAuth();

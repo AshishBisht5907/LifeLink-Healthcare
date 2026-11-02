@@ -14,7 +14,7 @@ from apps.admissions.serializers import (
 )
 from apps.audit.utils import log_action
 from apps.patients.access import user_can_access_admission, user_can_access_patient
-from apps.patients.models import PatientProfile
+from apps.patients.models import AccessLevel, PatientProfile
 from apps.notifications.services import notify_admission_created, notify_admission_discharged
 
 
@@ -30,7 +30,8 @@ class AdmissionViewSet(viewsets.ModelViewSet):
             return Admission.objects.filter(patient__user=user)
         if user.role == 'FAMILY':
             return Admission.objects.filter(patient__family_links__family_user=user,
-                                             patient__family_links__is_active=True)
+                                             patient__family_links__is_active=True,
+                                             patient__family_links__access_level=AccessLevel.FULL_REPRESENTATIVE)
         staff = get_staff_profile(user)
         if staff:
             # Hospital isolation: Hospital A staff never see Hospital B's admissions.

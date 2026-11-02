@@ -8,7 +8,6 @@ from apps.admissions.models import Admission
 from apps.hospitals.models import Department, DepartmentType, Hospital, StaffProfile, StaffRole
 from apps.patients.models import FamilyRelationship, PatientProfile
 from apps.patients.services import generate_lifelink_patient_id
-from apps.consents.models import ConsentRequest, ConsentStatus
 
 
 @pytest.fixture(autouse=True)
@@ -120,21 +119,12 @@ def admission(patient, hospital_a, doctor_a):
 
 
 @pytest.fixture
-def family_user(db, patient, admission):
-    from apps.consents.models import ConsentRequest, ConsentStatus
+def family_user(db, patient):
     user = User.objects.create(username='family_test', role=Role.FAMILY, phone='9990001111')
     user.set_unusable_password()
     user.save()
     FamilyRelationship.objects.create(patient=patient, family_user=user, relationship_type='Spouse',
                                        access_level='FULL_REPRESENTATIVE')
-
-    # Create approved consent for this admission so that user_can_access_patient returns True
-    ConsentRequest.objects.create(
-        patient=patient, admission=admission,
-        procedure_description="General patient data access consent",
-        status=ConsentStatus.APPROVED,
-        requested_by=user  # or any user
-    )
     return user
 
 

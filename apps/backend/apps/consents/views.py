@@ -1,4 +1,4 @@
-from rest_framework import status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -10,9 +10,15 @@ from apps.consents.models import ConsentRequest
 from apps.consents.serializers import ConsentDecisionSerializer, ConsentRequestSerializer
 from apps.consents.services import record_consent_action
 from apps.patients.access import user_can_access_admission, user_can_access_patient
+from apps.patients.models import AccessLevel
 
 
-class ConsentRequestViewSet(viewsets.ModelViewSet):
+class ConsentRequestViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
     serializer_class = ConsentRequestSerializer
     permission_classes = [IsAuthenticated]
 
@@ -24,7 +30,7 @@ class ConsentRequestViewSet(viewsets.ModelViewSet):
             return ConsentRequest.objects.filter(
                 patient__family_links__family_user=user,
                 patient__family_links__is_active=True,
-                patient__family_links__access_level='FULL_REPRESENTATIVE',
+                patient__family_links__access_level=AccessLevel.FULL_REPRESENTATIVE,
             )
         staff = get_staff_profile(user)
         if staff:
@@ -58,10 +64,7 @@ class ConsentRequestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def decide(self, request, pk=None):
-        """Only the PATIENT can decide a consent request. Not hospital staff
-        (section 20) and not a family member: a family member's own access
-        depends on the patient's consent, so letting them decide it would let
-        them grant themselves access."""
+        """Only the patient on the request can decide procedure consent."""
         consent = self.get_object()
         user = request.user
 

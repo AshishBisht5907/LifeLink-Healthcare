@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers, status, viewsets
@@ -17,7 +18,7 @@ from apps.patients.access import (
     user_has_active_grant,
 )
 from apps.patients.models import (
-    AccessGrantStatus, Allergy, DataSource, EmergencyContact, FamilyRelationship,
+    AccessGrantStatus, AccessLevel, Allergy, DataSource, EmergencyContact, FamilyRelationship,
     MedicalHistoryEntry, Medication, PatientAccessGrant, PatientProfile, VerificationStatus,
 )
 from apps.patients.serializers import (
@@ -359,10 +360,20 @@ class PatientProfileViewSet(viewsets.ModelViewSet):
             patient.is_unclaimed = False
             patient.save(update_fields=['user', 'is_unclaimed'])
         elif request.user.role == 'FAMILY':
-            FamilyRelationship.objects.get_or_create(
-                patient=patient, family_user=request.user,
-                defaults={'relationship_type': 'Representative', 'access_level': 'FULL_REPRESENTATIVE'},
-            )
+            with transaction.atomic():
+                link, created = FamilyRelationship.objects.get_or_create(
+                    patient=patient, family_user=request.user,
+                    defaults={
+                        'relationship_type': 'Representative',
+                        'access_level': AccessLevel.FULL_REPRESENTATIVE,
+                        'is_active': False,
+                    },
+                )
+                if created:
+                    _log_family_link_change(
+                        'FAMILY_LINK_CREATED', request.user, link, None, _family_link_access_state(link),
+                    )
+            return Response(PatientProfileSummarySerializer(patient).data)
         else:
             raise PermissionDenied('Only patient or family accounts can claim a profile.')
 
@@ -505,18 +516,47 @@ class FamilyRelationshipViewSet(viewsets.ModelViewSet):
         patient = serializer.validated_data['patient']
         if not user_can_manage_family_links(self.request.user, patient):
             raise PermissionDenied('You are not authorised to manage this patient\'s family access.')
-        serializer.save()
+        with transaction.atomic():
+            link = serializer.save()
+            _log_family_link_change(
+                'FAMILY_LINK_CREATED', self.request.user, link, None, _family_link_access_state(link),
+            )
 
     def perform_update(self, serializer):
         patient = serializer.instance.patient
         if not user_can_manage_family_links(self.request.user, patient):
             raise PermissionDenied('You are not authorised to manage this patient\'s family access.')
-        serializer.save()
+        with transaction.atomic():
+            before = _family_link_access_state(serializer.instance)
+            link = serializer.save()
+            after = _family_link_access_state(link)
+            if before['is_active'] != after['is_active']:
+                action = 'FAMILY_LINK_ACTIVATED' if after['is_active'] else 'FAMILY_LINK_PAUSED'
+                _log_family_link_change(action, self.request.user, link, before, after)
+            if before['access_level'] != after['access_level']:
+                _log_family_link_change('FAMILY_LINK_ACCESS_LEVEL_CHANGED', self.request.user, link, before, after)
 
     def perform_destroy(self, instance):
         if not user_can_manage_family_links(self.request.user, instance.patient):
             raise PermissionDenied('You are not authorised to manage this patient\'s family access.')
-        instance.delete()
+        with transaction.atomic():
+            before = _family_link_access_state(instance)
+            _log_family_link_change('FAMILY_LINK_REMOVED', self.request.user, instance, before, None)
+            instance.delete()
+
+
+def _family_link_access_state(link):
+    return {'is_active': link.is_active, 'access_level': link.access_level}
+
+
+def _log_family_link_change(action, actor, link, before, after):
+    log_action(
+        action,
+        actor=actor,
+        patient_id=link.patient_id,
+        target_description=str(link.id),
+        context={'link_id': str(link.id), 'before': before, 'after': after},
+    )
 
 
 def _patient_scoped_queryset(model, request):

@@ -15,9 +15,10 @@ import { EmptyState, ErrorState, LoadingBlock } from '@/components/ui/States';
 import { useToast } from '@/components/ui/Toast';
 import type { FamilyRelationship } from '@/lib/types';
 
-const LEVEL: Record<string, string> = { FULL_REPRESENTATIVE: 'Full representative', UPDATES_ONLY: 'Updates only', LIMITED: 'Limited' };
+const LEVEL: Record<string, string> = { FULL_REPRESENTATIVE: 'Full representative', UPDATES_ONLY: 'Updates only', LIMITED: 'Limited (no permissions defined)' };
 const TONE: Record<FamilyAccessKind, string> = {
-  ACTIVE: 'bg-success-tint text-success', PAUSED: 'bg-neutral-tint text-muted', UPDATES_ONLY: 'bg-info-tint text-info',
+  ACTIVE: 'bg-success-tint text-success', PAUSED: 'bg-neutral-tint text-muted',
+  UPDATES_ONLY: 'bg-info-tint text-info', LIMITED: 'bg-neutral-tint text-muted',
 };
 
 export function FamilyAccessView() {
@@ -56,14 +57,14 @@ export function FamilyAccessView() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Family access</h1>
-        <p className="mt-0.5 text-sm text-muted">{isPatient ? 'Who is linked to your record, and whether they can open it.' : 'The patients you are linked to, and whether you can open their record.'}</p>
+        <p className="mt-0.5 text-sm text-muted">{isPatient ? 'Who is linked to your record, and what their access level allows.' : 'The patients you are linked to, and what your access level allows.'}</p>
       </div>
 
       <div className="flex items-start gap-3 rounded-xl border border-info/25 bg-info-tint px-4 py-3 text-sm">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
         <div className="space-y-1">
-          <p className="font-medium">A family member can open the record when both conditions are met:</p>
-          <p className="text-foreground/80">the patient has activated the link and the access level is Full representative. Procedure consent is separate and does not control family profile access.</p>
+          <p className="font-medium">Family access depends on an active link and its access level.</p>
+          <p className="text-foreground/80">Full representative can open the clinical record; Updates only can see the patient-visible status feed; Limited has no defined permissions. Procedure consent is separate and does not control family access.</p>
         </div>
       </div>
 
@@ -105,8 +106,16 @@ export function FamilyAccessView() {
           <div className="space-y-4">
             <p className="text-sm text-foreground/80">
               {target.is_active
-                ? `${target.family_username} will stop seeing your care information straight away. You can restore this at any time.`
-                : `${target.family_username} will be able to see your record again if the access level is Full representative.`}
+                ? target.access_level === 'FULL_REPRESENTATIVE'
+                  ? `${target.family_username} will lose access to your clinical record straight away. You can reactivate the link at any time.`
+                  : target.access_level === 'UPDATES_ONLY'
+                    ? `${target.family_username} will stop seeing the patient-visible status feed straight away. You can reactivate the link at any time.`
+                    : `This link currently has no defined patient-record or status-feed permissions. Pausing it keeps access disabled.`
+                : target.access_level === 'FULL_REPRESENTATIVE'
+                  ? `${target.family_username} will be able to open your clinical record again.`
+                  : target.access_level === 'UPDATES_ONLY'
+                    ? `${target.family_username} will be able to see the patient-visible status feed again, but not the clinical record.`
+                    : `${target.family_username} will have no patient-record or status-feed access because Limited has no defined permissions.`}
             </p>
             {error && <p role="alert" className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
             <div className="flex justify-end gap-2">

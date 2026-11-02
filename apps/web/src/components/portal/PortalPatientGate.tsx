@@ -14,8 +14,8 @@ import { LockedPatientState } from './LockedPatientState';
 
 /**
  * Wraps a patient/family page. It renders the page only after GET /patients/<id>/ succeeds.
- * That endpoint enforces family consent, whereas some list endpoints do not, so this is what
- * stops a family member seeing care lists before the patient has consented.
+ * That endpoint enforces patient access, including the active full-representative family link,
+ * whereas some list endpoints do not.
  */
 export function PortalPatientGate({ title, subtitle, children }: { title: string; subtitle: string; children: (patientId: string) => React.ReactNode }) {
   const { user } = useAuth();

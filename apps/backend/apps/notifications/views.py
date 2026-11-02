@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -9,7 +10,7 @@ from apps.audit.utils import log_action
 from apps.notifications.models import FamilyCommunicationLog, Notification, NotificationPreference
 from apps.notifications.serializers import FamilyCommunicationLogSerializer, NotificationSerializer, NotificationPreferenceSerializer
 from apps.patients.access import user_can_access_patient
-from apps.patients.models import FamilyRelationship
+from apps.patients.models import AccessLevel, FamilyRelationship
 
 
 class NotificationPreferenceViewSet(viewsets.ModelViewSet):
@@ -41,7 +42,23 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(recipient=self.request.user)
+        user = self.request.user
+        queryset = Notification.objects.filter(recipient=user)
+        if user.role == 'FAMILY':
+            queryset = queryset.filter(
+                Q(patient__isnull=True, admission__isnull=True)
+                | Q(
+                    patient__family_links__family_user=user,
+                    patient__family_links__is_active=True,
+                    patient__family_links__access_level=AccessLevel.FULL_REPRESENTATIVE,
+                )
+                | Q(
+                    admission__patient__family_links__family_user=user,
+                    admission__patient__family_links__is_active=True,
+                    admission__patient__family_links__access_level=AccessLevel.FULL_REPRESENTATIVE,
+                )
+            ).distinct()
+        return queryset
 
     @action(detail=True, methods=['post'])
     def mark_read(self, request, pk=None):
@@ -58,7 +75,12 @@ class FamilyCommunicationLogViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'FAMILY':
-            return FamilyCommunicationLog.objects.filter(sent_to=user)
+            return FamilyCommunicationLog.objects.filter(
+                sent_to=user,
+                patient__family_links__family_user=user,
+                patient__family_links__is_active=True,
+                patient__family_links__access_level=AccessLevel.FULL_REPRESENTATIVE,
+            )
         patient_id = self.request.query_params.get('patient')
         patient = _get_patient(patient_id) if patient_id else None
         if patient and user_can_access_patient(user, patient):
@@ -75,7 +97,12 @@ class FamilyCommunicationLogViewSet(viewsets.ModelViewSet):
         if not user_can_access_patient(self.request.user, patient):
             raise PermissionDenied('You cannot message family for this patient.')
         sent_to = serializer.validated_data['sent_to']
-        if not FamilyRelationship.objects.filter(patient=patient, family_user=sent_to, is_active=True).exists():
+        if not FamilyRelationship.objects.filter(
+            patient=patient,
+            family_user=sent_to,
+            is_active=True,
+            access_level=AccessLevel.FULL_REPRESENTATIVE,
+        ).exists():
             raise PermissionDenied('Recipient is not an authorised family member for this patient.')
         log_entry = serializer.save(sent_by=self.request.user)
         Notification.objects.create(

@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from apps.accounts.permissions import IsStaffOrManagementOrAdmin, get_staff_profile
 from apps.admissions.models import Admission
 from apps.patients.access import user_can_access_admission
-from apps.patients.models import PatientProfile
+from apps.patients.models import AccessLevel, PatientProfile
 from apps.workflow.models import RequestStatus, ServiceRequest
 from apps.workflow.serializers import (
     ServiceRequestCreateSerializer, ServiceRequestSerializer, TransitionActionSerializer,
@@ -31,6 +31,7 @@ class ServiceRequestViewSet(viewsets.ModelViewSet):
         if user.role == 'FAMILY':
             return ServiceRequest.objects.filter(
                 patient__family_links__family_user=user, patient__family_links__is_active=True,
+                patient__family_links__access_level=AccessLevel.FULL_REPRESENTATIVE,
                 is_family_visible=True,
             )
         staff = get_staff_profile(user)
