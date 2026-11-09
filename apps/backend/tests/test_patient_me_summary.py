@@ -146,3 +146,29 @@ def test_family_registration_creates_pending_link_that_patient_can_activate(
     assert summary_response.data[0]['id'] == str(patient.id)
     detail_response = api_client.get(f'/api/patients/{patient.id}/')
     assert detail_response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_patient_me_endpoint_returns_own_profile(api_client, patient, patient_user):
+    """A linked patient account must be able to resolve its own profile."""
+    api_client.force_authenticate(user=patient_user)
+
+    response = api_client.get('/api/patients/me/')
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data == [{
+        'id': str(patient.id),
+        'lifelink_patient_id': patient.lifelink_patient_id,
+        'full_name': patient.full_name,
+        'is_unclaimed': False,
+    }]
+
+
+@pytest.mark.django_db
+def test_hospital_management_cannot_use_patient_me_endpoint(api_client, management_a):
+    """Hospital accounts must use hospital-scoped patient search, not /me/."""
+    api_client.force_authenticate(user=management_a)
+
+    response = api_client.get('/api/patients/me/')
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
