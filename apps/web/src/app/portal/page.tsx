@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, Droplet, ArrowLeftRight, Pill, ShieldCheck } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, roleHomePath } from '@/context/AuthContext';
 import { useLinkedPatients, type LinkedPatient } from '@/lib/useMyPatient';
 import { useApi } from '@/lib/useApi';
 import { admissionsApi, aiApi, consentsApi, notificationsApi, patientsApi, referralsApi, requestsApi } from '@/lib/api';
@@ -21,9 +22,20 @@ import { RoleBasedActionCenter } from '@/components/management/RoleBasedActionCe
 
 export default function PortalDashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const { patients, loading, failed, failureStatus, refetch } = useLinkedPatients();
   const [chosen, setChosen] = useState<string | null>(null);
+  const isPatientPortalRole = user?.role === 'PATIENT' || user?.role === 'FAMILY';
 
+  useEffect(() => {
+    if (user && !isPatientPortalRole) {
+      router.replace(roleHomePath(user.role));
+    }
+  }, [user, isPatientPortalRole, router]);
+
+  // Do not mount the patient portal for hospital accounts. Their own
+  // dashboards use hospital-scoped endpoints and must not call /patients/me/.
+  if (user && !isPatientPortalRole) return <LoadingBlock rows={4} />;
   if (loading) return <LoadingBlock rows={6} />;
   if (failed) return <Card><ErrorState status={failureStatus} description={friendlyError(failureStatus)} onRetry={refetch} /></Card>;
   if (patients.length === 0) {
