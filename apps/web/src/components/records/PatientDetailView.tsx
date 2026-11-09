@@ -53,15 +53,7 @@ export function PatientDetailView({ patientId, searchBasePath, admissionBasePath
       if (!recordDenied) refetchPatient();
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [accessGate, recordDenied, refetchPatient, refetchGrants]);
-
-  // The patient approved (or emergency access began): re-check the record once.
-  // The backend still decides; this only prompts it to be asked again.
-  useEffect(() => {
-    if (!accessGate || !liveGrantId) return;
-    refetchPatient();
-    refetchSummary();
-  }, [accessGate, liveGrantId, refetchPatient, refetchSummary]);
+  }, [accessGate, patient.refetch, grants.refetch]);
   // Documents are only requested once the patient record itself was allowed; the backend re-checks access either way.
   const documents = useApi(() => documentsApi.list(patientId), [patientId], !!patient.data);
   const [showNewAdmission, setShowNewAdmission] = useState(false);

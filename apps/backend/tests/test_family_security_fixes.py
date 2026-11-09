@@ -367,4 +367,85 @@ def test_updates_only_family_can_see_status_feed_but_not_admission_notes(patient
     client = auth_client(fam)
     assert client.get(f'/api/patients/{patient.id}/live_status/').status_code == 200
     assert client.get(f'/api/patients/{patient.id}/').status_code == 403
-    assert client.get(f'/api/admissions/{admission.id}/').status_code == 403
+    assert client.get(f'/api/admissions/{admission.id}/').status_code == 404
+    assert client.get('/api/admissions/').json()['results'] == []
+    assert client.get('/api/requests/').json()['results'] == []
+
+
+def test_limited_family_has_no_patient_record_or_status_access(patient, admission):
+    fam = mk_user('limitedfam', phone='9100000098')
+    FamilyRelationship.objects.create(
+        patient=patient,
+        family_user=fam,
+        relationship_type='Relative',
+        access_level='LIMITED',
+        is_active=True,
+    )
+    client = auth_client(fam)
+    assert client.get(f'/api/patients/{patient.id}/').status_code == 403
+    assert client.get(f'/api/patients/{patient.id}/live_status/').status_code == 403
+    assert client.get(f'/api/admissions/{admission.id}/').status_code == 404
+    assert client.get('/api/admissions/').json()['results'] == []
+    assert client.get('/api/requests/').json()['results'] == []
+
+
+def test_non_full_family_cannot_read_clinical_notifications_or_messages(patient, doctor_a):
+    from apps.notifications.models import FamilyCommunicationLog, Notification
+
+    fam = mk_user('updatesmsg', phone='9100000096')
+    FamilyRelationship.objects.create(
+        patient=patient,
+        family_user=fam,
+        relationship_type='Relative',
+        access_level='UPDATES_ONLY',
+        is_active=True,
+    )
+    notification = Notification.objects.create(
+        recipient=fam,
+        notification_type='GENERAL',
+        title='Patient update',
+        body='Clinical details',
+        patient=patient,
+    )
+    communication = FamilyCommunicationLog.objects.create(
+        patient=patient,
+        message='Clinical details',
+        sent_by=doctor_a,
+        sent_to=fam,
+    )
+    client = auth_client(fam)
+    assert client.get('/api/notifications/').json()['results'] == []
+    assert client.get(f'/api/notifications/{notification.id}/').status_code == 404
+    assert client.get('/api/notifications/family-communications/').json()['results'] == []
+    assert client.get(
+        f'/api/notifications/family-communications/{communication.id}/',
+    ).status_code == 404
+
+
+def test_family_claim_creates_pending_link_and_returns_identity_only():
+    family = mk_user('claimfamily', phone='9100000097')
+    unclaimed_patient = PatientProfile.objects.create(
+        lifelink_patient_id=generate_lifelink_patient_id(),
+        full_name='Pending Family Claim',
+        is_unclaimed=True,
+    )
+    response = auth_client(family).post(
+        '/api/patients/claim/',
+        {'lifelink_patient_id': unclaimed_patient.lifelink_patient_id},
+        format='json',
+    )
+
+    assert response.status_code == 200
+    assert set(response.json()) == {'id', 'lifelink_patient_id', 'full_name', 'is_unclaimed'}
+    link = FamilyRelationship.objects.get(patient=unclaimed_patient, family_user=family)
+    assert link.access_level == 'FULL_REPRESENTATIVE'
+    assert link.is_active is False
+    assert auth_client(family).get(f'/api/patients/{unclaimed_patient.id}/').status_code == 403
+    audit = AuditLog.objects.get(action='FAMILY_LINK_CREATED', target_description=str(link.id))
+    assert audit.actor_id == family.id
+    assert audit.patient_id == unclaimed_patient.id
+    assert audit.context == {
+        'link_id': str(link.id),
+        'before': None,
+        'after': {'is_active': False, 'access_level': 'FULL_REPRESENTATIVE'},
+    }

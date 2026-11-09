@@ -1,5 +1,6 @@
 import pyotp
 from django.contrib.auth import authenticate
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -178,13 +179,25 @@ class OTPVerifyView(APIView):
             if is_family_registration:
                 # Family sign-up never grants access immediately. The patient
                 # must explicitly activate the pending relationship first.
-                FamilyRelationship.objects.create(
-                    patient=family_patient,
-                    family_user=user,
-                    relationship_type=d.get('relationship_type', 'Representative'),
-                    access_level=AccessLevel.FULL_REPRESENTATIVE,
-                    is_active=False,
-                )
+                with transaction.atomic():
+                    link = FamilyRelationship.objects.create(
+                        patient=family_patient,
+                        family_user=user,
+                        relationship_type=d.get('relationship_type', 'Representative'),
+                        access_level=AccessLevel.FULL_REPRESENTATIVE,
+                        is_active=False,
+                    )
+                    log_action(
+                        'FAMILY_LINK_CREATED',
+                        actor=user,
+                        patient_id=family_patient.id,
+                        target_description=str(link.id),
+                        context={
+                            'link_id': str(link.id),
+                            'before': None,
+                            'after': {'is_active': link.is_active, 'access_level': link.access_level},
+                        },
+                    )
                 # Make the pending request visible to the patient immediately.
                 from apps.notifications.models import NotificationType
                 from apps.notifications.services import _create_once

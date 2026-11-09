@@ -51,7 +51,7 @@ def _advance_linked_requests(consent, actor):
     from apps.workflow.services import transition_request
     for req in consent.service_requests.filter(status=RequestStatus.APPROVAL_REQUIRED):
         transition_request(req=req, new_status=RequestStatus.APPROVED, actor=actor,
-                            note='Family/patient consent approved.')
+                            note='Patient consent approved.')
 
 
 def _reject_linked_requests(consent, actor):
@@ -59,4 +59,4 @@ def _reject_linked_requests(consent, actor):
     from apps.workflow.services import transition_request
     for req in consent.service_requests.filter(status=RequestStatus.APPROVAL_REQUIRED):
         transition_request(req=req, new_status=RequestStatus.REJECTED, actor=actor,
-                            note='Consent declined by patient/family.')
+                            note='Patient consent declined.')

@@ -2,6 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models, transaction
+from django.db.models import Q
 
 
 class AdmissionCounter(models.Model):
@@ -43,6 +44,13 @@ class Admission(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=['hospital', 'status'])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['patient', 'hospital'],
+                condition=Q(status='ACTIVE'),
+                name='uniq_active_admission_patient_hospital',
+            ),
+        ]
 
     def __str__(self):
         return self.admission_number

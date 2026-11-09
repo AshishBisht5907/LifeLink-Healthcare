@@ -2,6 +2,7 @@ import pytest
 
 from apps.admissions.models import Admission
 from apps.hospitals.models import Department, DepartmentType, StaffRole
+from apps.patients.models import FamilyRelationship
 from apps.referrals.models import Referral, ReferralStatus, Transfer
 from tests.conftest import _make_staff, auth_client
 
@@ -145,6 +146,19 @@ def test_family_can_view_their_linked_patients_referral(management_a, patient, a
     client_family = auth_client(family_user)
     resp = client_family.get(f'/api/referrals/{referral_id}/')
     assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_updates_only_family_cannot_view_detailed_referral(management_a, patient, admission, hospital_b, family_user):
+    client_a = auth_client(management_a)
+    referral_id = _create_referral_via_api(client_a, patient, admission, hospital_b).json()['id']
+    link = FamilyRelationship.objects.get(patient=patient, family_user=family_user)
+    link.access_level = 'UPDATES_ONLY'
+    link.save(update_fields=['access_level'])
+
+    client_family = auth_client(family_user)
+    assert client_family.get(f'/api/referrals/{referral_id}/').status_code == 404
+    assert client_family.get('/api/referrals/').json()['results'] == []
 
 
 @pytest.mark.django_db

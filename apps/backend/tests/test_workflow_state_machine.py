@@ -1,7 +1,8 @@
 import pytest
 from django.core.exceptions import PermissionDenied
 
-from apps.workflow.models import RequestStatus, RequestTypeCode
+from apps.consents.models import ConsentAction
+from apps.workflow.models import RequestStatus, RequestTypeCode, StatusTransition
 from apps.workflow.services import WorkflowError, create_service_request, transition_request
 from apps.notifications.models import Notification
 from tests.conftest import auth_client
@@ -251,8 +252,17 @@ def test_linked_consent_approval_releases_surgery_to_department(
         f"/api/consents/{created.json()['id']}/decide/", {'action': 'APPROVE'}, format='json',
     )
     assert decision.status_code == 200
+    action = ConsentAction.objects.get(consent_request_id=created.json()['id'])
+    assert action.action == 'APPROVE'
+    assert action.actor_id == patient_user.id
     req.refresh_from_db()
     assert req.status == RequestStatus.APPROVED
+    assert StatusTransition.objects.filter(
+        service_request=req,
+        from_status=RequestStatus.APPROVAL_REQUIRED,
+        to_status=RequestStatus.APPROVED,
+        changed_by=patient_user,
+    ).exists()
 
     transition_request(req=req, new_status=RequestStatus.IN_PROGRESS, actor=ot_staff)
     completed = transition_request(req=req, new_status=RequestStatus.COMPLETED, actor=ot_staff)

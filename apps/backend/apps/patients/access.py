@@ -3,9 +3,9 @@ from apps.patients.models import AccessLevel
 
 
 def user_can_access_patient(user, patient) -> bool:
-    """The single source of truth for 'is this user allowed to see this
-    patient at all'. Every other view (admissions, requests, consents,
-    documents...) should call this rather than re-implementing the logic.
+    """The single source of truth for object-level patient access checks.
+    Querysets must apply equivalent role, active-link, and access-level
+    constraints so list endpoints enforce the same policy.
     """
     if user.role == 'PATIENT':
         return patient.user_id == user.id

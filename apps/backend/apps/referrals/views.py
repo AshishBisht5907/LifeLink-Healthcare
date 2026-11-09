@@ -12,7 +12,7 @@ from apps.ai_insights.engine import generate_emergency_summary
 from apps.audit.utils import log_action
 from apps.hospitals.models import Hospital
 from apps.patients.access import user_can_access_admission
-from apps.patients.models import PatientProfile
+from apps.patients.models import AccessLevel, PatientProfile
 from apps.referrals.checklist import ChecklistError, apply_checklist_updates
 from apps.referrals.models import Referral, ReferralStatus, Transfer
 from apps.referrals.packet import build_transfer_packet
@@ -33,15 +33,15 @@ class ReferralViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Patient/family may only ever see referrals concerning their OWN
-        # patient — read-only, and scoped exactly like live_status/consents
-        # elsewhere in the app (section 19: family sees referral/transfer
-        # status, never anyone else's).
+        # Family members can see detailed referral/transfer data only through
+        # an active full-representative link; updates-only links use the
+        # separately sanitized patient-visible status feed.
         if user.role == 'PATIENT':
             return Referral.objects.filter(patient__user=user)
         if user.role == 'FAMILY':
             return Referral.objects.filter(
-                patient__family_links__family_user=user, patient__family_links__is_active=True)
+                patient__family_links__family_user=user, patient__family_links__is_active=True,
+                patient__family_links__access_level=AccessLevel.FULL_REPRESENTATIVE)
 
         staff = get_staff_profile(user)
         if not staff:

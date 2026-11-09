@@ -452,3 +452,57 @@ class TestFamilyAccessAuditLogging:
         # Verify family link was created
         link = FamilyRelationship.objects.get(patient=claimed_patient, family_user=family_user)
         assert link is not None
+        log = AuditLog.objects.get(action='FAMILY_LINK_CREATED', target_description=str(link.id))
+        assert log.actor_id == patient_user.id
+        assert log.patient_id == claimed_patient.id
+        assert log.context == {
+            'link_id': str(link.id),
+            'before': None,
+            'after': {'is_active': False, 'access_level': 'UPDATES_ONLY'},
+        }
+
+    def test_family_link_lifecycle_changes_are_audited(self, client, patient_user, claimed_patient):
+        from apps.audit.models import AuditLog
+
+        family_user = User.objects.create_user(
+            username='lifecycle_family',
+            phone='+919876543223',
+            role=Role.FAMILY,
+        )
+        client.force_authenticate(user=patient_user)
+        url = '/api/patients/family-links/'
+        created = client.post(url, {
+            'patient': str(claimed_patient.id),
+            'family_user': str(family_user.id),
+            'relationship_type': 'Sibling',
+            'access_level': 'UPDATES_ONLY',
+            'is_active': True,
+        }, format='json')
+        assert created.status_code == status.HTTP_201_CREATED
+        link_id = created.json()['id']
+
+        assert client.patch(f'{url}{link_id}/', {'is_active': False}, format='json').status_code == status.HTTP_200_OK
+        assert client.patch(f'{url}{link_id}/', {'is_active': True}, format='json').status_code == status.HTTP_200_OK
+        assert client.patch(
+            f'{url}{link_id}/', {'access_level': 'FULL_REPRESENTATIVE'}, format='json',
+        ).status_code == status.HTTP_200_OK
+        assert client.delete(f'{url}{link_id}/').status_code == status.HTTP_204_NO_CONTENT
+
+        logs = list(AuditLog.objects.filter(target_description=link_id).order_by('created_at'))
+        assert [entry.action for entry in logs] == [
+            'FAMILY_LINK_CREATED',
+            'FAMILY_LINK_PAUSED',
+            'FAMILY_LINK_ACTIVATED',
+            'FAMILY_LINK_ACCESS_LEVEL_CHANGED',
+            'FAMILY_LINK_REMOVED',
+        ]
+        assert all(entry.actor_id == patient_user.id for entry in logs)
+        assert all(entry.patient_id == claimed_patient.id for entry in logs)
+        assert logs[1].context['before'] == {'is_active': True, 'access_level': 'UPDATES_ONLY'}
+        assert logs[1].context['after'] == {'is_active': False, 'access_level': 'UPDATES_ONLY'}
+        assert logs[2].context['before'] == {'is_active': False, 'access_level': 'UPDATES_ONLY'}
+        assert logs[2].context['after'] == {'is_active': True, 'access_level': 'UPDATES_ONLY'}
+        assert logs[3].context['before'] == {'is_active': True, 'access_level': 'UPDATES_ONLY'}
+        assert logs[3].context['after'] == {'is_active': True, 'access_level': 'FULL_REPRESENTATIVE'}
+        assert logs[4].context['before'] == {'is_active': True, 'access_level': 'FULL_REPRESENTATIVE'}
+        assert logs[4].context['after'] is None

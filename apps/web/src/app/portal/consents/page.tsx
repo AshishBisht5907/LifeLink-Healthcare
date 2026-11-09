@@ -22,15 +22,15 @@ export default function PortalConsentsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold">Consent</h1>
-        <p className="mt-0.5 text-sm text-muted">{isPatient ? 'Procedures the hospital needs your agreement for.' : 'Consent requests for the patients you are linked to.'}{waiting > 0 && <strong className="text-foreground"> {waiting} waiting for an answer.</strong>}</p>
+        <h1 className="text-xl font-semibold">Procedure consent</h1>
+        <p className="mt-0.5 text-sm text-muted">{isPatient ? 'Procedures the hospital needs your agreement for.' : 'Procedure consent requests for the patients you are linked to.'}{waiting > 0 && <strong className="text-foreground"> {waiting} waiting for an answer.</strong>}</p>
       </div>
 
       <div className="flex items-start gap-3 rounded-xl border border-info/25 bg-info-tint px-4 py-3 text-sm">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
         <p>{isPatient
-          ? 'Your most recent consent also decides whether authorised family members can open your record. Approving opens it to them; declining or withdrawing locks it.'
-          : 'Only the patient answers consent requests. A family member can open the record only while the patient\u2019s most recent consent is approved.'}</p>
+          ? 'These decisions apply only to the procedure described. Family access is managed separately in Family access and depends on an active link with the Full representative access level.'
+          : 'Only the patient on a request can decide procedure consent. Your record access depends separately on the patient\u2019s active family link and its access level.'}</p>
       </div>
 
       <Card>
