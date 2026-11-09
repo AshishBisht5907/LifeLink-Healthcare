@@ -12,10 +12,8 @@ interface MyPatientResult {
 
 /**
  * Resolves the current patient/family user's own PatientProfile via the
- * real GET /api/patients/me/ endpoint. This used to be a workaround
- * (discovering the id indirectly via family-links/admissions) because no
- * such endpoint existed — it now does, so this hook is a thin wrapper
- * around it rather than the workaround itself.
+ * GET /api/patients/me/ endpoint. This endpoint is intentionally limited
+ * to patient and family accounts; hospital users must use their scoped APIs.
  */
 export function useMyPatientId(): MyPatientResult {
   const { user } = useAuth();
@@ -25,6 +23,12 @@ export function useMyPatientId(): MyPatientResult {
 
   useEffect(() => {
     if (!user) return;
+    if (user.role !== 'PATIENT' && user.role !== 'FAMILY') {
+      setPatientId(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
 
     async function resolve() {
@@ -37,7 +41,7 @@ export function useMyPatientId(): MyPatientResult {
           setPatientId(patients[0].id);
         } else {
           setError(
-            user!.role === 'FAMILY'
+            user.role === 'FAMILY'
               ? 'No patient profile is linked to your family account yet.'
               : 'Your profile has not been linked to any hospital record yet, so it cannot be displayed here.'
           );
@@ -58,7 +62,6 @@ export function useMyPatientId(): MyPatientResult {
   return { patientId, loading, error };
 }
 
-
 export interface LinkedPatient {
   id: string;
   lifelink_patient_id: string;
@@ -67,9 +70,8 @@ export interface LinkedPatient {
 
 /**
  * All patients linked to this account (a family user may have several).
- * Deliberately keeps ONLY id, LifeLink ID and name from /patients/me/.
- * Medical details are loaded through GET /patients/<id>/ instead, because
- * that endpoint enforces the active family-link access level and this one does not.
+ * Hospital roles are deliberately excluded: /patients/me/ is not a staff
+ * search endpoint and must never be called from their dashboards.
  */
 export function useLinkedPatients() {
   const { user } = useAuth();
@@ -81,6 +83,14 @@ export function useLinkedPatients() {
 
   useEffect(() => {
     if (!user) return;
+    if (user.role !== 'PATIENT' && user.role !== 'FAMILY') {
+      setPatients([]);
+      setLoading(false);
+      setFailed(false);
+      setFailureStatus(undefined);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setFailed(false);
