@@ -1,73 +1,36 @@
-# LifeLink — Connected Care. Better Tomorrow.
+<div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0284c7,100:0ea5e9&height=210&section=header&text=LifeLink&fontSize=64&fontColor=ffffff&fontAlignY=38&desc=Connected%20Care.%20Better%20Tomorrow.&descSize=20&descAlignY=60&animation=fadeIn" width="100%" alt="LifeLink Banner" />
+</div>
 
-A patient-centric emergency health & hospital care coordination platform.
+<div align="center">
+
+**A patient-centric emergency health & hospital care coordination platform.**  
 **Full-stack implementation: Django REST backend + Next.js 16 (TypeScript) frontend. Current build/test status is tracked by GitHub Actions on pull requests.**
 
-## What's real vs. what's mocked
+![Django REST](https://img.shields.io/badge/Backend-Django_REST-092E20?style=for-the-badge&logo=django&logoColor=white)
+![Next.js 16](https://img.shields.io/badge/Frontend-Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL_%7C_SQLite-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Auth](https://img.shields.io/badge/Auth-httpOnly_Proxy-10B981?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 
-| Area | Status |
-|---|---|
-| Django models / migrations / PostgreSQL schema | Real |
-| JWT auth, RBAC, hospital/department isolation | Real, tested (backend + re-verified through the frontend proxy) |
-| Workflow state machine (approval ≠ completion) | Real, tested, and live-demonstrated in the UI |
-| Consent workflow | Real, tested, full UI (create → approve/decline/ask-doctor) |
-| Referral & transfer coordination, incl. ownership-checked checklist | Real, tested, full UI |
-| Hospital Admin staff provisioning/activation | Real, tested, full UI |
-| Audit log (immutable) | Real, tested, full UI viewer |
-| AI summary engine | Real retrieval-and-organize logic over actual DB records with mandatory source references — no live LLM call (see `docs/AI.md`) |
-| Next.js frontend | **Built.** Role-based dashboards for Patient/Family, Hospital Staff, Hospital Management, Hospital Admin — see `apps/web` |
-| Session security | httpOnly cookies minted server-side by Next.js route handlers; the browser never sees a JWT. All API calls proxy through `/api/proxy/*`, which attaches the Bearer token and transparently refreshes on 401 |
-| OTP delivery | Mock provider for local demo; configurable Twilio Programmable SMS provider is implemented. Real delivery requires your Twilio credentials, an enabled sender, and E.164 phone numbers. |
-| Aadhaar identity verification | **Mock/demo only** — no real UIDAI integration or approval; use synthetic demo data only |
-| S3 storage, Celery/Redis, WebSockets | Not implemented — documents use local disk storage |
-| React Native mobile app | Not built (out of scope for this pass — see `docs/DEMO_GUIDE.md`) |
+</div>
 
-## Project structure
+---
 
-```
-lifelink/
-  apps/
-    backend/              # Django project
-      config/
-      apps/                # accounts, hospitals, patients, admissions, workflow,
-                            # consents, referrals, documents, notifications, audit, ai_insights
-      tests/               # automated backend regression tests
-    web/                   # Next.js 16 + TypeScript frontend
-      src/
-        app/                # role-based route groups: portal, staff, management, admin
-        components/         # ui/ (design system), layout/ (shell, nav, guards),
-                             # records/ (shared patient/admission/request views)
-        lib/                # api.ts (typed client), types.ts, session.ts, useApi.ts
-        context/            # AuthContext
-  docs/
-    ARCHITECTURE.md, API.md, SECURITY.md, AI.md, WORKFLOWS.md,
-    DEMO_GUIDE.md, TESTING.md, FRONTEND.md, GAPS.md
-```
+## 🏗️ System Architecture & Proxy Security Flow
 
-## Running LifeLink
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User (Patient / Staff / Admin)
+    participant Next as Next.js 16 Frontend (/api/proxy/*)
+    participant Django as Django REST Backend (127.0.0.1:8000)
+    participant DB as PostgreSQL / SQLite
 
-**1. Backend:**
-```bash
-cd apps/backend
-python3 -m venv venv
-./venv/bin/pip install -r requirements.txt
-cp .env.example .env
-# The supplied .env.example uses SQLite by default. For PostgreSQL, set USE_SQLITE=False and configure DB_*
-./venv/bin/python manage.py migrate
-./venv/bin/python manage.py seed_demo
-./venv/bin/python manage.py runserver
-```
-
-**2. Frontend** (in a second terminal):
-```bash
-cd apps/web
-npm install
-cp .env.example .env.local
-npm run build && npm start
-# or for development: npm run dev
-```
-
-Open http://localhost:3000 — role selection screen. See `docs/DEMO_GUIDE.md` for demo credentials.
-
-Run backend tests: `cd apps/backend && ./venv/bin/python -m pytest tests/ -v` (the suite grows as regressions are added).
-Run frontend build check: `cd apps/web && npx next build`.
+    User->>Next: Interacts with Role Dashboard
+    Note over Next: Reads server-side httpOnly cookie<br/>(Browser never sees a JWT)
+    Next->>Django: Attaches Bearer token & forwards request
+    Django->>DB: Enforces RBAC, hospital/department isolation & audit log
+    DB-->>Django: Verified record / workflow state
+    Django-->>Next: JSON response (transparently refreshes on 401)
+    Next-->>User: Renders live UI state
