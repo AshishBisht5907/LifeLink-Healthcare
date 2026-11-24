@@ -2,11 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAccessToken, getRefreshToken, setSessionTokens, clearSessionTokens } from '@/lib/session';
 import { DJANGO_API_URL } from '@/lib/serverApi';
 
+class DjangoConnectionError extends Error {
+  constructor(url: string, method: string, cause: unknown) {
+    super(`Could not reach Django at ${url} while forwarding ${method}.`, { cause });
+    this.name = 'DjangoConnectionError';
+  }
+}
+
+async function fetchDjango(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (cause) {
+    console.error('LifeLink Django upstream request failed:', { url, method: init.method || 'GET', cause });
+    throw new DjangoConnectionError(url, init.method || 'GET', cause);
+  }
+}
+
 async function tryRefresh(): Promise<string | null> {
   const refresh = await getRefreshToken();
   if (!refresh) return null;
   try {
-    const resp = await fetch(`${DJANGO_API_URL}/api/auth/token/refresh/`, {
+    const resp = await fetchDjango(`${DJANGO_API_URL}/api/auth/token/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh }),
@@ -47,7 +63,7 @@ async function forward(req: NextRequest, pathParts: string[]): Promise<NextRespo
 
   try {
     const body = await getBody();
-    let resp = await fetch(url, { method: req.method, headers: buildHeaders(accessToken), body, cache: 'no-store' });
+    let resp = await fetchDjango(url, { method: req.method, headers: buildHeaders(accessToken), body, cache: 'no-store' });
 
     // Refresh even if the access cookie itself expired and is now missing.
     if (resp.status === 401) {
@@ -55,7 +71,7 @@ async function forward(req: NextRequest, pathParts: string[]): Promise<NextRespo
       if (newToken) {
         // Only replay buffered text/JSON bodies. Multipart forms cannot safely be reused.
         if (!isMultipart) {
-          resp = await fetch(url, { method: req.method, headers: buildHeaders(newToken), body, cache: 'no-store' });
+          resp = await fetchDjango(url, { method: req.method, headers: buildHeaders(newToken), body, cache: 'no-store' });
         }
       } else {
         await clearSessionTokens();
@@ -78,12 +94,19 @@ async function forward(req: NextRequest, pathParts: string[]): Promise<NextRespo
       },
     });
   } catch (error) {
-    console.error('LifeLink API proxy error:', error);
+    if (error instanceof DjangoConnectionError) {
+      return NextResponse.json({
+        error: true,
+        code: 502,
+        message: 'Next.js could not connect to Django. Check DJANGO_API_URL and ensure Django is reachable from the Next.js server.',
+      }, { status: 502 });
+    }
+    console.error('LifeLink API proxy processing error:', error);
     return NextResponse.json({
       error: true,
-      code: 503,
-      message: 'LifeLink backend is unreachable. Check that Django is running on 127.0.0.1:8000.',
-    }, { status: 503 });
+      code: 500,
+      message: 'The LifeLink API proxy could not process this request.',
+    }, { status: 500 });
   }
 }
 
