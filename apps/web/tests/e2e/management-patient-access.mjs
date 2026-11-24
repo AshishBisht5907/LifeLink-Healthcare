@@ -28,6 +28,14 @@ async function staffLogin(page, username, role) {
 }
 
 try {
+  // Verify the actual Next.js -> Django server-side connection before login.
+  // Django's unauthenticated /auth/me/ endpoint should respond with HTTP 401.
+  const backendHealthResponse = await managementPage.request.get(`${baseURL}/api/health/backend`);
+  assert.equal(backendHealthResponse.status(), 200, 'Next.js backend health endpoint should respond');
+  const backendHealth = await backendHealthResponse.json();
+  assert.equal(backendHealth.reachable, true, 'Next.js must be able to reach Django');
+  assert.equal(backendHealth.upstreamStatus, 401, 'Django auth/me should reject the unauthenticated health probe');
+
   // Management searches and requests access. The profile route must remain
   // locked while the grant is still pending.
   await staffLogin(managementPage, 'management_e2e', 'management');
